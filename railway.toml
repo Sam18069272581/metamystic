@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "corepack enable && corepack pnpm --filter @metamystic/backend prisma:generate && corepack pnpm --filter @metamystic/backend build"
 
 [deploy]
-startCommand = "corepack pnpm --filter @metamystic/backend start"
+startCommand = "corepack pnpm --filter @metamystic/backend prisma:deploy && corepack pnpm --filter @metamystic/backend start"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
