@@ -1,0 +1,86 @@
+# MetaMystic Deployment
+
+This project is deployed as two services:
+
+- Frontend: Vercel, serving the Next.js app in `apps/frontend`.
+- Backend: Railway, serving the NestJS API in `apps/backend`.
+- Database: managed PostgreSQL with pgvector enabled.
+
+## Frontend on Vercel
+
+Use the repository root as the Vercel project root. The root `vercel.json` builds only the frontend workspace.
+
+Required frontend environment variables:
+
+```ini
+NEXT_PUBLIC_API_BASE_URL="https://<backend-domain>/api/v1"
+```
+
+After the backend has a public URL, update this value in Vercel and redeploy the frontend.
+
+## Backend on Railway
+
+Use the repository root as the Railway project root. The root `railway.toml` builds and starts only the backend workspace.
+
+Required backend environment variables:
+
+```ini
+DATABASE_URL="postgresql://..."
+OPENAI_API_KEY="sk-..."
+OPENAI_MODEL="gpt-4.1-mini"
+OPENAI_EMBEDDING_MODEL="text-embedding-3-small"
+OPENAI_EMBEDDING_DIMENSIONS="1536"
+JWT_ACCESS_SECRET="<long-random-secret>"
+JWT_REFRESH_SECRET="<different-long-random-secret>"
+GOOGLE_CLIENT_ID="<google-client-id>"
+GOOGLE_CLIENT_SECRET="<google-client-secret>"
+GOOGLE_CALLBACK_URL="https://<backend-domain>/api/v1/auth/google/callback"
+FRONTEND_APP_URL="https://<frontend-domain>"
+CORS_ORIGINS="https://<frontend-domain>"
+```
+
+Railway injects `PORT`; the backend also supports `BACKEND_PORT` for local development.
+
+## Database
+
+The production database must support pgvector. Enable the extension before running embedding backfills:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+Run Prisma migrations during deployment setup:
+
+```powershell
+corepack pnpm --filter @metamystic/backend prisma:migrate
+```
+
+For production, prefer `prisma migrate deploy` in CI or a one-off Railway job once the database is provisioned.
+
+## Smoke Checks
+
+Backend health check:
+
+```text
+GET https://<backend-domain>/api/v1/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "success",
+  "data": {
+    "service": "metamystic-backend",
+    "ok": true
+  }
+}
+```
+
+Frontend smoke flow:
+
+1. Open the Vercel frontend URL.
+2. Sign in or create a profile.
+3. Create a Bazi chart.
+4. Start an AI consultation.
+5. Confirm SSE stream events render in the consultation page.

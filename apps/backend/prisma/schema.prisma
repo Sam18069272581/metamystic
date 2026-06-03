@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  female
+  male
+  non_binary
+  unknown
+}
+
+enum ConsultationTone {
+  strategic
+  gentle
+}
+
+enum ConsultationStatus {
+  pending
+  streaming
+  completed
+  failed
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+}
+
+model User {
+  id              String          @id @default(cuid())
+  anonymousUserId String?         @unique
+  email           String?         @unique
+  displayName     String?
+  avatarUrl       String?
+  role            UserRole        @default(USER)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  profile         Profile?
+  identities      AuthIdentity[]
+  refreshTokens   RefreshToken[]
+  consultations   Consultation[]
+}
+
+model AuthIdentity {
+  id                String       @id @default(cuid())
+  userId            String
+  provider          AuthProvider
+  providerAccountId String
+  email             String?
+  passwordHash      String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Profile {
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  displayName     String?
+  birthTime       DateTime
+  birthTimezone   String
+  gender          Gender
+  birthPlace      String?
+  latitude        Float?
+  longitude       Float?
+  memorySignals   Json           @default("{}")
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baziCharts      BaziChart[]
+  ziweiCharts     ZiweiChart[]
+  astrologyCharts AstrologyChart[]
+  consultations   Consultation[]
+}
+
+model BaziChart {
+  id              String         @id @default(cuid())
+  profileId       String
+  fingerprint     String?
+  dayMaster       String
+  dayMasterStatus String
+  mainPattern     String
+  pillars         Json
+  elements        Json
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  profile         Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  consultations   Consultation[]
+
+  @@unique([profileId, fingerprint])
+  @@index([profileId, createdAt])
+}
+
+model ZiweiChart {
+  id              String         @id @default(cuid())
+  profileId       String
+  lifePalace      String
+  bodyPalace      String
+  palaces         Json
+  summary         String
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  profile         Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+}
+
+model AstrologyChart {
+  id               String         @id @default(cuid())
+  profileId        String
+  placements       Json
+  houses           Json
+  dominantElements Json
+  summary          String
+  metadata         Json           @default("{}")
+  createdAt        DateTime       @default(now())
+  profile          Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+}
+
+model Consultation {
+  id              String                  @id @default(cuid())
+  userId          String
+  profileId       String
+  chartId         String
+  question        String
+  tone            ConsultationTone
+  status          ConsultationStatus       @default(pending)
+  summary         String?
+  metadata        Json                     @default("{}")
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile         Profile                  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  chart           BaziChart                @relation(fields: [chartId], references: [id], onDelete: Cascade)
+  messages        ConsultationMessage[]
+
+  @@index([userId, createdAt])
+  @@index([profileId, createdAt])
+}
+
+model ConsultationMessage {
+  id              String         @id @default(cuid())
+  consultationId  String
+  role            MessageRole
+  content         String
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  consultation    Consultation   @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  @@index([consultationId, createdAt])
+}
+
+model KnowledgeSource {
+  id              String         @id @default(cuid())
+  title           String
+  author          String?
+  sourceType      String
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  chunks          KnowledgeChunk[]
+}
+
+model KnowledgeChunk {
+  id              String          @id @default(cuid())
+  sourceId        String
+  anchorId        String
+  content         String
+  embedding       Unsupported("vector(1536)")?
+  metadata        Json            @default("{}")
+  createdAt       DateTime        @default(now())
+  source          KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, anchorId])
+}

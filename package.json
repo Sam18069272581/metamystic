@@ -1,0 +1,15 @@
+{
+  "name": "metamystic",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "corepack pnpm --parallel --filter @metamystic/backend --filter @metamystic/frontend dev",
+    "build": "corepack pnpm -r build",
+    "typecheck": "corepack pnpm -r typecheck",
+    "lint": "corepack pnpm -r lint",
+    "test": "corepack pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
