@@ -26,6 +26,7 @@ Required backend environment variables:
 
 ```ini
 DATABASE_URL="postgresql://..."
+AI_PROVIDER="openai"
 OPENAI_API_KEY="sk-..."
 OPENAI_MODEL="gpt-4.1-mini"
 OPENAI_EMBEDDING_MODEL="text-embedding-3-small"
@@ -37,6 +38,15 @@ GOOGLE_CLIENT_SECRET="<google-client-secret>"
 GOOGLE_CALLBACK_URL="https://<backend-domain>/api/v1/auth/google/callback"
 FRONTEND_APP_URL="https://<frontend-domain>"
 CORS_ORIGINS="https://<frontend-domain>"
+```
+
+For DeepSeek-compatible chat generation, keep the embedding variables above and switch the consultation provider:
+
+```ini
+AI_PROVIDER="hermes"
+HERMES_API_KEY="<deepseek-compatible-api-key>"
+HERMES_BASE_URL="https://api.deepseek.com"
+HERMES_MODEL="deepseek-chat"
 ```
 
 Railway injects `PORT`; the backend also supports `BACKEND_PORT` for local development.

@@ -32,24 +32,70 @@ interface OpenAiClientLike {
 
 export interface OpenAiConsultationProviderOptions {
   apiKey: string;
+  baseURL?: string;
   model: string;
+  providerName?: string;
   client?: OpenAiClientLike;
 }
 
 export function createAiProvider(config: ConfigService): AiProvider {
-  const apiKey = config.get<string>("OPENAI_API_KEY");
+  const provider = (config.get<string>("AI_PROVIDER") ?? "openai").toLowerCase();
+  const providerConfig = getOpenAiCompatibleProviderConfig(provider, config);
 
-  if (!apiKey) {
+  if (!providerConfig?.apiKey) {
     return new MockAiProvider();
   }
 
   return new ResilientAiProvider(
     new OpenAiConsultationProvider({
-      apiKey,
-      model: config.get<string>("OPENAI_MODEL") ?? "gpt-4.1-mini"
+      apiKey: providerConfig.apiKey,
+      model: providerConfig.model,
+      providerName: providerConfig.providerName,
+      ...(providerConfig.baseURL ? { baseURL: providerConfig.baseURL } : {})
     }),
     new MockAiProvider()
   );
+}
+
+interface OpenAiCompatibleProviderConfig {
+  apiKey: string | undefined;
+  baseURL?: string;
+  model: string;
+  providerName: string;
+}
+
+function getOpenAiCompatibleProviderConfig(
+  provider: string,
+  config: ConfigService
+): OpenAiCompatibleProviderConfig | undefined {
+  if (provider === "deepseek" || provider === "hermes") {
+    return {
+      apiKey:
+        provider === "hermes"
+          ? config.get<string>("HERMES_API_KEY") ?? config.get<string>("DEEPSEEK_API_KEY")
+          : config.get<string>("DEEPSEEK_API_KEY") ?? config.get<string>("HERMES_API_KEY"),
+      ...withBaseURL(
+        config.get<string>(provider === "hermes" ? "HERMES_BASE_URL" : "DEEPSEEK_BASE_URL") ??
+          config.get<string>("DEEPSEEK_BASE_URL") ??
+          "https://api.deepseek.com"
+      ),
+      model:
+        config.get<string>(provider === "hermes" ? "HERMES_MODEL" : "DEEPSEEK_MODEL") ??
+        config.get<string>("DEEPSEEK_MODEL") ??
+        "deepseek-chat",
+      providerName: provider
+    };
+  }
+
+  return {
+    apiKey: config.get<string>("OPENAI_API_KEY"),
+    model: config.get<string>("OPENAI_MODEL") ?? "gpt-4.1-mini",
+    providerName: "openai"
+  };
+}
+
+function withBaseURL(baseURL: string | undefined): Pick<OpenAiCompatibleProviderConfig, "baseURL"> | Record<string, never> {
+  return baseURL ? { baseURL } : {};
 }
 
 export class ResilientAiProvider implements AiProvider {
@@ -73,9 +119,18 @@ export class ResilientAiProvider implements AiProvider {
 
 export class OpenAiConsultationProvider implements AiProvider {
   private readonly client: OpenAiClientLike;
+  readonly model: string;
+  readonly providerName: string;
 
   constructor(private readonly options: OpenAiConsultationProviderOptions) {
-    this.client = options.client ?? (new OpenAI({ apiKey: options.apiKey }) as unknown as OpenAiClientLike);
+    this.model = options.model;
+    this.providerName = options.providerName ?? "openai";
+    this.client =
+      options.client ??
+      (new OpenAI({
+        apiKey: options.apiKey,
+        ...(options.baseURL ? { baseURL: options.baseURL } : {})
+      }) as unknown as OpenAiClientLike);
   }
 
   async *streamConsultation(input: AiConsultationInput): AsyncGenerator<AiProviderChunk> {
