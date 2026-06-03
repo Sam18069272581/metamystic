@@ -111,6 +111,47 @@ export interface BaziChartDto {
     strengthScore: number;
     strengthLabel: string;
     strengthReasons: string[];
+    strength?: {
+      score: number;
+      level: string;
+      supportScore: number;
+      pressureScore: number;
+      seasonalSupport: "supporting" | "draining" | "controlling" | "neutral";
+      dayElementRatio: number;
+      resourceRatio: number;
+      peerRatio: number;
+      outputRatio: number;
+      wealthRatio: number;
+      officerRatio: number;
+      reasons: string[];
+    } | undefined;
+    tenGodDistribution?: {
+      weights: Record<string, number>;
+      percentages: Record<string, number>;
+      dominantTenGods: string[];
+      interpretation: string;
+    } | undefined;
+    usefulGodDetails?: Array<{
+      element: FiveElement;
+      label: string;
+      role: string;
+      reason: string;
+      advice: string;
+    }> | undefined;
+    unfavorableGodDetails?: Array<{
+      element: FiveElement;
+      label: string;
+      role: string;
+      reason: string;
+      advice: string;
+    }> | undefined;
+    pattern?: {
+      name: string;
+      confidence: number;
+      evidence: string[];
+      strategySummary: string;
+    } | undefined;
+    riskFlags?: string[] | undefined;
     favorableStrategy: string;
     personality: string;
     career: string;
