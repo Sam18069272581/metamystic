@@ -13,3 +13,5 @@ coverage/
 apps/*/.next/
 apps/*/dist/
 apps/*/coverage/
+
+.vercel
