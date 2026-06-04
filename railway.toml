@@ -1,6 +1,14 @@
 [build]
 builder = "NIXPACKS"
 buildCommand = "corepack enable && corepack pnpm --filter @metamystic/backend prisma:generate && corepack pnpm --filter @metamystic/backend build"
+watchPatterns = [
+  "apps/backend/**",
+  "packages/shared/**",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "railway.toml"
+]
 
 [deploy]
 startCommand = "corepack pnpm --filter @metamystic/backend prisma:deploy && corepack pnpm --filter @metamystic/backend start"

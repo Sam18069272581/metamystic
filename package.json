@@ -2,6 +2,9 @@
   "name": "metamystic",
   "private": true,
   "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "corepack pnpm --parallel --filter @metamystic/backend --filter @metamystic/frontend dev",
     "build": "corepack pnpm -r build",

@@ -1,12 +1,34 @@
-# MetaMystic MVP
+# MetaMystic
 
-第一阶段实现的是全栈核心闭环：用户档案、八字排盘、AI 命理咨询、SSE 流式输出和历史记录数据模型。
+AI-powered metaphysics decision platform for Bazi charting, AI consultation, RAG knowledge retrieval, user profiles, and long-term personal memory.
+
+## Stack
+
+- Frontend: Next.js 15, React 19, TypeScript, Tailwind CSS, Zustand, Framer Motion
+- Backend: NestJS, TypeScript, Prisma
+- Database: PostgreSQL with pgvector
+- AI: OpenAI-compatible chat providers, OpenAI embeddings, RAG
+- Deployment: Vercel frontend, Railway backend and PostgreSQL
+
+## Project Structure
+
+```text
+apps/
+  frontend/       Next.js app
+  backend/        NestJS API
+packages/
+  shared/         Shared API contracts and DTOs
+docs/
+  deployment.md   Cloud deployment notes
+  product/        Product reference documents and UI reference
+```
 
 ## Local Development
 
 Install dependencies:
 
 ```powershell
+corepack enable
 corepack pnpm install
 ```
 
@@ -16,23 +38,44 @@ Start PostgreSQL with pgvector:
 docker compose up -d
 ```
 
-Create `.env` from `.env.example`, then run migrations:
+Create local environment variables:
 
 ```powershell
 Copy-Item .env.example .env
-$env:DATABASE_URL="postgresql://postgres:postgres@localhost:5432/metamystic?schema=public"
+```
+
+Run migrations:
+
+```powershell
 corepack pnpm --filter @metamystic/backend prisma:migrate
 ```
 
-Start frontend and backend:
+Start the frontend and backend:
 
 ```powershell
 corepack pnpm dev
 ```
 
-Frontend: http://localhost:3000
-Backend: http://localhost:4000/api/v1
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:4000/api/v1
+- Health check: http://localhost:4000/api/v1/health
 
-## Current Local Caveat
+## Core Commands
 
-If clicking "开始 AI 命理分析" shows a backend connection error, the frontend is running but the backend API is unavailable. The backend requires PostgreSQL at `localhost:5432`; install/start Docker or provide another PostgreSQL `DATABASE_URL`.
+```powershell
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+```
+
+## Environment Notes
+
+`.env` and `.env.*` are intentionally ignored. Use `.env.example` as the public template.
+
+`AI_PROVIDER` supports `openai` and `deepseek`. DeepSeek is used through its OpenAI-compatible chat API; embeddings use the `OPENAI_*` settings by default.
+
+RAG vector search is disabled in `.env.example` so first-time local setup works before embedding backfill. Enable it after configuring an embedding API key and generating knowledge vectors.
+
+## Deployment
+
+See [docs/deployment.md](docs/deployment.md).

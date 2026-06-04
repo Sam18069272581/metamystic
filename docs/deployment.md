@@ -10,6 +10,8 @@ This project is deployed as two services:
 
 Use the repository root as the Vercel project root. The root `vercel.json` builds only the frontend workspace.
 
+The root `package.json` intentionally keeps `next`, `react`, and `react-dom` as deploy-time dependencies because this Vercel project currently uses the repository root as its project root. Without those dependencies at the root, Vercel cannot detect the Next.js version. The frontend package still owns the actual application dependencies in `apps/frontend/package.json`.
+
 Required frontend environment variables:
 
 ```ini
@@ -21,6 +23,8 @@ After the backend has a public URL, update this value in Vercel and redeploy the
 ## Backend on Railway
 
 Use the repository root as the Railway project root. The root `railway.toml` builds and starts only the backend workspace.
+
+This repository is a shared pnpm workspace, so Railway builds from the repository root and uses backend-specific commands instead of setting the service root to `apps/backend`. Watch patterns are configured in `railway.toml` to avoid backend deploys for unrelated frontend-only changes.
 
 Required backend environment variables:
 
@@ -43,11 +47,13 @@ CORS_ORIGINS="https://<frontend-domain>"
 For DeepSeek-compatible chat generation, keep the embedding variables above and switch the consultation provider:
 
 ```ini
-AI_PROVIDER="hermes"
-HERMES_API_KEY="<deepseek-compatible-api-key>"
-HERMES_BASE_URL="https://api.deepseek.com"
-HERMES_MODEL="deepseek-chat"
+AI_PROVIDER="deepseek"
+DEEPSEEK_API_KEY="<deepseek-compatible-api-key>"
+DEEPSEEK_BASE_URL="https://api.deepseek.com"
+DEEPSEEK_MODEL="deepseek-chat"
 ```
+
+The backend still accepts `AI_PROVIDER="hermes"` as a backward-compatible alias for older deployments, but new environments should use `deepseek`.
 
 Railway injects `PORT`; the backend also supports `BACKEND_PORT` for local development.
 
