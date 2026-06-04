@@ -181,6 +181,40 @@ export interface CreateBaziChartRequest {
 
 export type PublicBaziShareDto = Omit<BaziChartDto, "profileId">;
 
+export interface CreateCompatibilityRequest {
+  profileAId: string;
+  profileBId: string;
+}
+
+export interface CompatibilityDimensionDto {
+  score: number;
+  summary: string;
+  items: string[];
+}
+
+export interface CompatibilityReadingDto {
+  profiles: {
+    a: { id: string; label: string };
+    b: { id: string; label: string };
+  };
+  charts: {
+    a: Pick<BaziChartDto, "id" | "profileId" | "dayMaster" | "dayMasterStatus" | "mainPattern" | "usefulGods">;
+    b: Pick<BaziChartDto, "id" | "profileId" | "dayMaster" | "dayMasterStatus" | "mainPattern" | "usefulGods">;
+  };
+  overallScore: number;
+  level: "excellent" | "good" | "balanced" | "challenging";
+  dimensions: {
+    fiveElement: CompatibilityDimensionDto;
+    stems: CompatibilityDimensionDto;
+    branches: CompatibilityDimensionDto;
+    dayMasters: CompatibilityDimensionDto;
+  };
+  advantages: string[];
+  risks: string[];
+  advice: string[];
+  disclaimer: string;
+}
+
 export type ZiweiPalaceName =
   | "life"
   | "siblings"

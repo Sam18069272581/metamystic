@@ -292,6 +292,50 @@ describe("apiClient", () => {
     );
   });
 
+  it("creates a current-user compatibility reading", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        json: async () => ({
+          status: "success",
+          data: {
+            profiles: {
+              a: { id: "profile-1", label: "self" },
+              b: { id: "profile-2", label: "partner" }
+            },
+            charts: {
+              a: { id: "bazi-1", profileId: "profile-1", dayMaster: "乙", dayMasterStatus: "weak", mainPattern: "杀印相生" },
+              b: { id: "bazi-2", profileId: "profile-2", dayMaster: "壬", dayMasterStatus: "strong", mainPattern: "食神生财" }
+            },
+            overallScore: 76,
+            level: "good",
+            dimensions: {
+              fiveElement: { score: 78, summary: "五行互补明显", items: [] },
+              stems: { score: 70, summary: "天干互动偏合", items: [] },
+              branches: { score: 68, summary: "地支关系平衡", items: [] },
+              dayMasters: { score: 74, summary: "日主关系有扶持感", items: [] }
+            },
+            advantages: ["五行互补明显"],
+            risks: ["需要同步节奏"],
+            advice: ["先尊重彼此决策方式"],
+            disclaimer: "合盘用于关系模式观察"
+          }
+        })
+      })
+    );
+
+    const reading = await apiClient.createMyCompatibilityReading({
+      profileAId: "profile-1",
+      profileBId: "profile-2"
+    });
+
+    expect(reading.overallScore).toBe(76);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/compatibility",
+      expect.objectContaining({ method: "POST", credentials: "include" })
+    );
+  });
+
   it("fetches one current-user chart detail", async () => {
     vi.stubGlobal(
       "fetch",

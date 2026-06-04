@@ -7,8 +7,10 @@ import type {
   ConsultationHistoryDto,
   ConsultationListResponse,
   ConsultationStreamEvent,
+  CompatibilityReadingDto,
   CreateBaziChartRequest,
   CreateAstrologyChartRequest,
+  CreateCompatibilityRequest,
   CreateConsultationRequest,
   CreateUserProfileRequest,
   ProfileDto,
@@ -110,6 +112,13 @@ export const apiClient = {
   setDefaultMyProfile(profileId: string): Promise<ProfileDto> {
     return request<ProfileDto>(`/users/me/profiles/${encodeURIComponent(profileId)}/default`, {
       method: "PATCH"
+    });
+  },
+
+  createMyCompatibilityReading(input: CreateCompatibilityRequest): Promise<CompatibilityReadingDto> {
+    return request<CompatibilityReadingDto>("/users/me/compatibility", {
+      method: "POST",
+      body: JSON.stringify(input)
     });
   },
 

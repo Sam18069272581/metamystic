@@ -1,9 +1,17 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
-import type { AuthUserDto, CreateUserProfileRequest, ProfileDto, UserChartArchiveDto, UserProfileListResponse } from "@metamystic/shared";
-import { CalendarDays, CheckCircle2, CircleDotDashed, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
+import type {
+  AuthUserDto,
+  CompatibilityReadingDto,
+  CreateCompatibilityRequest,
+  CreateUserProfileRequest,
+  ProfileDto,
+  UserChartArchiveDto,
+  UserProfileListResponse
+} from "@metamystic/shared";
+import { CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
 
@@ -18,7 +26,13 @@ export default function MePage() {
     birthTimezone: "Asia/Shanghai",
     gender: "unknown"
   });
+  const [compatibilityInput, setCompatibilityInput] = useState<CreateCompatibilityRequest>({
+    profileAId: "",
+    profileBId: ""
+  });
+  const [compatibility, setCompatibility] = useState<CompatibilityReadingDto | undefined>();
   const [savingProfile, setSavingProfile] = useState(false);
+  const [readingCompatibility, setReadingCompatibility] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
   async function loadAccount(): Promise<void> {
@@ -30,6 +44,15 @@ export default function MePage() {
     setUser(nextUser);
     setArchive(nextArchive);
     setProfiles(nextProfiles);
+    setCompatibilityInput((current) => {
+      if (current.profileAId && current.profileBId) {
+        return current;
+      }
+      return {
+        profileAId: nextProfiles.profiles[0]?.id ?? "",
+        profileBId: nextProfiles.profiles[1]?.id ?? ""
+      };
+    });
   }
 
   useEffect(() => {
@@ -79,6 +102,23 @@ export default function MePage() {
       setError(unknownError instanceof Error ? unknownError.message : "\u65e0\u6cd5\u5207\u6362\u9ed8\u8ba4\u6863\u6848");
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function handleCreateCompatibility(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!compatibilityInput.profileAId || !compatibilityInput.profileBId || compatibilityInput.profileAId === compatibilityInput.profileBId) {
+      setError("\u8bf7\u9009\u62e9\u4e24\u4e2a\u4e0d\u540c\u7684\u547d\u7406\u6863\u6848");
+      return;
+    }
+    setReadingCompatibility(true);
+    setError(undefined);
+    try {
+      setCompatibility(await apiClient.createMyCompatibilityReading(compatibilityInput));
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "\u65e0\u6cd5\u751f\u6210\u5408\u76d8\u5206\u6790");
+    } finally {
+      setReadingCompatibility(false);
     }
   }
 
@@ -179,6 +219,44 @@ export default function MePage() {
         </section>
 
         <section className="mystic-card rounded-3xl p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="gold-text text-lg font-semibold">{"\u516b\u5b57\u5408\u76d8"}</p>
+              <p className="mt-1 text-xs text-white/42">{"\u9009\u62e9\u4e24\u4e2a\u6863\u6848\uff0c\u89c2\u5bdf\u4e94\u884c\u4e92\u8865\u4e0e\u5408\u51b2\u98ce\u9669"}</p>
+            </div>
+            <HeartHandshake className="h-4 w-4 text-amber-100/70" />
+          </div>
+          <form className="mt-4 space-y-3" onSubmit={handleCreateCompatibility}>
+            <div className="grid grid-cols-2 gap-2">
+              <ProfileSelect
+                profiles={profiles?.profiles ?? []}
+                value={compatibilityInput.profileAId}
+                onChange={(profileAId) => setCompatibilityInput((current) => ({ ...current, profileAId }))}
+              />
+              <ProfileSelect
+                profiles={profiles?.profiles ?? []}
+                value={compatibilityInput.profileBId}
+                onChange={(profileBId) => setCompatibilityInput((current) => ({ ...current, profileBId }))}
+              />
+            </div>
+            <button
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-3 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/15 disabled:opacity-50"
+              disabled={readingCompatibility || (profiles?.profiles.length ?? 0) < 2}
+              type="submit"
+            >
+              <HeartHandshake className="h-4 w-4" />
+              {readingCompatibility ? "\u5408\u76d8\u5206\u6790\u4e2d" : "\u5f00\u59cb\u5408\u76d8"}
+            </button>
+          </form>
+          {profiles && profiles.profiles.length < 2 ? (
+            <p className="mt-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3 text-sm text-white/55">
+              {"\u81f3\u5c11\u9700\u8981\u4e24\u4e2a\u547d\u7406\u6863\u6848\u624d\u80fd\u751f\u6210\u5408\u76d8"}
+            </p>
+          ) : null}
+          {compatibility ? <CompatibilityCard reading={compatibility} /> : null}
+        </section>
+
+        <section className="mystic-card rounded-3xl p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="gold-text text-lg font-semibold">{"\u6211\u7684\u547d\u76d8"}</p>
@@ -213,6 +291,95 @@ export default function MePage() {
       </div>
     </MobileShell>
   );
+}
+
+function ProfileSelect({
+  onChange,
+  profiles,
+  value
+}: {
+  onChange: (profileId: string) => void;
+  profiles: ProfileDto[];
+  value: string;
+}) {
+  return (
+    <select
+      className="min-w-0 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-amber-200/40"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">{"\u9009\u62e9\u6863\u6848"}</option>
+      {profiles.map((profile) => (
+        <option key={profile.id} value={profile.id}>
+          {profile.label ?? profile.displayName ?? "\u547d\u4e3b"}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function CompatibilityCard({ reading }: { reading: CompatibilityReadingDto }) {
+  return (
+    <div className="mt-4 space-y-3 rounded-2xl border border-amber-200/15 bg-amber-200/[0.045] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-white/86">{`${reading.profiles.a.label} 脳 ${reading.profiles.b.label}`}</p>
+          <p className="mt-1 text-xs text-white/45">{levelText(reading.level)}</p>
+        </div>
+        <div className="text-right">
+          <p className="gold-text text-3xl font-semibold">{reading.overallScore}</p>
+          <p className="text-xs text-white/40">{"\u7f18\u5206\u5206"}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <DimensionMini label={"\u4e94\u884c"} dimension={reading.dimensions.fiveElement} />
+        <DimensionMini label={"\u5929\u5e72"} dimension={reading.dimensions.stems} />
+        <DimensionMini label={"\u5730\u652f"} dimension={reading.dimensions.branches} />
+        <DimensionMini label={"\u65e5\u4e3b"} dimension={reading.dimensions.dayMasters} />
+      </div>
+      <TextList title={"\u76f8\u5904\u4f18\u52bf"} items={reading.advantages} />
+      <TextList title={"\u98ce\u9669\u63d0\u9192"} items={reading.risks} />
+      <TextList title={"\u5efa\u8bae"} items={reading.advice} />
+      <p className="text-[11px] leading-relaxed text-white/35">{reading.disclaimer}</p>
+    </div>
+  );
+}
+
+function DimensionMini({ dimension, label }: { dimension: CompatibilityReadingDto["dimensions"]["fiveElement"]; label: string }) {
+  return (
+    <div className="rounded-2xl border border-white/8 bg-black/15 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-white/45">{label}</p>
+        <p className="text-sm font-semibold text-amber-100">{dimension.score}</p>
+      </div>
+      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-white/68">{dimension.summary}</p>
+    </div>
+  );
+}
+
+function TextList({ items, title }: { items: string[]; title: string }) {
+  return (
+    <div>
+      <p className="text-xs text-white/40">{title}</p>
+      <div className="mt-2 space-y-1">
+        {items.map((item) => (
+          <p key={item} className="rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-xs leading-relaxed text-white/68">
+            {item}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function levelText(level: CompatibilityReadingDto["level"]): string {
+  const labels: Record<CompatibilityReadingDto["level"], string> = {
+    excellent: "\u9ad8\u5951\u5408",
+    good: "\u4e92\u8865\u826f\u597d",
+    balanced: "\u5e73\u8861\u53ef\u7ecf\u8425",
+    challenging: "\u9700\u8981\u66f4\u591a\u78e8\u5408"
+  };
+  return labels[level];
 }
 
 function ProfileRow({
@@ -278,3 +445,4 @@ function ChartRow({
     </Link>
   );
 }
+

@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { AstrologyModule } from "./astrology/astrology.module";
 import { AuthModule } from "./auth/auth.module";
 import { BaziModule } from "./bazi/bazi.module";
+import { CompatibilityModule } from "./compatibility/compatibility.module";
 import { ConsultationModule } from "./consultation/consultation.module";
 import { HealthModule } from "./health/health.module";
 import { KnowledgeModule } from "./knowledge/knowledge.module";
@@ -23,6 +24,7 @@ import { ZiweiModule } from "./ziwei/ziwei.module";
     ProfileModule,
     UserModule,
     BaziModule,
+    CompatibilityModule,
     ConsultationModule,
     ZiweiModule,
     AstrologyModule
