@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import type { ConsultationTone, Gender } from "@metamystic/shared";
 import { apiClient } from "@/lib/api-client";
 import { useAppStore } from "@/store/app-store";
+import { questionTemplateCategories } from "./question-templates";
 
 interface ConsultationFormProps {
   initialChartId?: string | undefined;
@@ -186,6 +187,33 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
           className="mt-2 min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm leading-6 text-white outline-none focus:border-[#d8a850]/50"
         />
       </label>
+      <div className="mt-3 space-y-3 rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="gold-text text-xs font-semibold">{"\u5feb\u901f\u63d0\u95ee"}</p>
+          <p className="text-[11px] text-white/38">{"\u9009\u4e00\u4e2a\u65b9\u5411\uff0c\u518d\u6839\u636e\u4f60\u7684\u60c5\u51b5\u5fae\u8c03"}</p>
+        </div>
+        <div className="space-y-2">
+          {questionTemplateCategories.map((category) => (
+            <div key={category.id} className="grid grid-cols-[2.5rem_1fr] items-start gap-2">
+              <div className="rounded-full border border-amber-200/15 bg-amber-200/8 px-2 py-1 text-center text-[11px] font-medium text-amber-100/80">
+                {category.label}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {category.templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => setQuestion(template.question)}
+                    className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/72 transition hover:border-amber-200/30 hover:bg-amber-200/10 hover:text-amber-50"
+                  >
+                    {template.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
       <button
         type="button"
         onClick={() => void submit()}
