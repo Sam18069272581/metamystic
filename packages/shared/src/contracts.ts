@@ -167,6 +167,8 @@ export interface CreateBaziChartRequest {
   profileId: string;
 }
 
+export type PublicBaziShareDto = Omit<BaziChartDto, "profileId">;
+
 export type ZiweiPalaceName =
   | "life"
   | "siblings"

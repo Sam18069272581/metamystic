@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { BaziService } from "./bazi.service";
 
@@ -104,5 +104,50 @@ describe("BaziService chart fingerprinting", () => {
     expect(createInput.data.fingerprint).toBe(
       "9089e31ef50ed682be6ef8bcdf90155ae55a16bf95901842938271a3857353da"
     );
+  });
+});
+
+describe("BaziService public share chart", () => {
+  it("returns a Bazi chart by id for public sharing", async () => {
+    const publicChart = {
+      id: "bazi-existing",
+      profileId: "profile-1",
+      dayMaster: "乙",
+      dayMasterStatus: "weak",
+      mainPattern: "杀印相生",
+      pillars: {
+        year: { stem: "乙", branch: "亥", tenGod: "比肩", hiddenStems: ["壬", "甲"], nayin: "山头火" },
+        month: { stem: "辛", branch: "巳", tenGod: "七杀", hiddenStems: ["丙", "戊", "庚"], nayin: "白蜡金" },
+        day: { stem: "乙", branch: "卯", tenGod: "日主", hiddenStems: ["乙"], nayin: "大溪水" },
+        hour: { stem: "辛", branch: "巳", tenGod: "七杀", hiddenStems: ["丙", "戊", "庚"], nayin: "白蜡金" }
+      },
+      elements: { wood: 0.2, fire: 0.24, earth: 0.18, metal: 0.28, water: 0.1 },
+      metadata: { usefulGods: ["water", "wood"], analysis: { strengthLabel: "身弱" } },
+      createdAt: new Date("2026-06-02T08:00:00.000Z")
+    };
+    const prisma = {
+      baziChart: {
+        findUnique: vi.fn().mockResolvedValue(publicChart)
+      }
+    };
+    const service = new BaziService(prisma as never, {} as never);
+
+    const chart = await service.getPublicShareChart("bazi-existing");
+
+    expect(prisma.baziChart.findUnique).toHaveBeenCalledWith({ where: { id: "bazi-existing" } });
+    expect(chart.id).toBe("bazi-existing");
+    expect("profileId" in chart).toBe(false);
+    expect(chart.analysis?.strengthLabel).toBe("身弱");
+  });
+
+  it("rejects sharing a missing Bazi chart", async () => {
+    const prisma = {
+      baziChart: {
+        findUnique: vi.fn().mockResolvedValue(null)
+      }
+    };
+    const service = new BaziService(prisma as never, {} as never);
+
+    await expect(service.getPublicShareChart("missing-chart")).rejects.toBeInstanceOf(NotFoundException);
   });
 });

@@ -13,6 +13,7 @@ import type {
   ProfileDto,
   ProfileMemorySignalsDto,
   LoginRequest,
+  PublicBaziShareDto,
   RegisterRequest,
   UpsertProfileRequest,
   UpsertUserProfileRequest,
@@ -141,6 +142,12 @@ export const apiClient = {
 
   getMyChart(kind: UserChartKind, chartId: string): Promise<UserChartDetailDto> {
     return request<UserChartDetailDto>(`/users/me/charts/${kind}/${encodeURIComponent(chartId)}`, {
+      method: "GET"
+    });
+  },
+
+  getPublicBaziShareChart(chartId: string): Promise<PublicBaziShareDto> {
+    return request<PublicBaziShareDto>(`/charts/bazi/${encodeURIComponent(chartId)}/share`, {
       method: "GET"
     });
   },

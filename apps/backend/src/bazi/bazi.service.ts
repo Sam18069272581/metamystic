@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import type { BaziChartDto, FiveElement } from "@metamystic/shared";
+import type { BaziChartDto, FiveElement, PublicBaziShareDto } from "@metamystic/shared";
 import { createHash } from "crypto";
 import { asPrismaJson } from "../prisma/prisma-json";
 import { PrismaService } from "../prisma/prisma.service";
@@ -81,6 +81,15 @@ export class BaziService {
       throw new ForbiddenException("Profile does not belong to current user");
     }
     return this.createChart(profileId);
+  }
+
+  async getPublicShareChart(chartId: string): Promise<PublicBaziShareDto> {
+    const chart = await this.prisma.baziChart.findUnique({ where: { id: chartId } });
+    if (!chart) {
+      throw new NotFoundException("Chart not found");
+    }
+    const { profileId: _profileId, ...shareChart } = toBaziChartDto(chart);
+    return shareChart;
   }
 }
 

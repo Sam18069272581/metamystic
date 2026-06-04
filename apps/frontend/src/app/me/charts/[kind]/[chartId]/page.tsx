@@ -12,6 +12,7 @@ import type {
 } from "@metamystic/shared";
 import { AstrologyChartBoard } from "@/components/astrology/astrology-chart-board";
 import { BaziChartCard } from "@/components/bazi/bazi-chart-card";
+import { BaziShareActions } from "@/components/chart-share/bazi-share-actions";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { ZiweiChartBoard } from "@/components/ziwei/ziwei-chart-board";
 import { apiClient } from "@/lib/api-client";
@@ -43,6 +44,7 @@ export default function MyChartDetailPage() {
               {"\u7528\u8fd9\u5f20\u547d\u76d8\u53d1\u8d77 AI \u89e3\u8bfb"}
             </Link>
           ) : null}
+          {detail?.kind === "bazi" ? <BaziShareActions chartId={detail.chart.id} /> : null}
           {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
         </section>
 
