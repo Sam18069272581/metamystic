@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { BaziChartDto, PublicBaziShareDto } from "@metamystic/shared";
 import { BaziChartCard } from "@/components/bazi/bazi-chart-card";
+import { BaziShareHero } from "@/components/chart-share/bazi-share-hero";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
 
@@ -41,7 +42,10 @@ export default function PublicBaziSharePage() {
         </section>
 
         {chart ? (
-          <BaziChartCard chart={toDisplayChart(chart)} />
+          <>
+            <BaziShareHero chart={chart} />
+            <BaziChartCard chart={toDisplayChart(chart)} />
+          </>
         ) : (
           <div className="h-72 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
         )}
