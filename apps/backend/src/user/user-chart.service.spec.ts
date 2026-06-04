@@ -6,9 +6,11 @@ describe("UserChartService", () => {
   it("lists the current user's profile and chart archive", async () => {
     const prisma = {
       profile: {
-        findUnique: vi.fn().mockResolvedValue({
+        findFirst: vi.fn().mockResolvedValue({
           id: "profile-1",
           userId: "user-1",
+          label: "self",
+          isDefault: true,
           displayName: "命主",
           birthTime: new Date("1995-05-20T10:30:00.000Z"),
           birthTimezone: "Asia/Shanghai",
@@ -72,16 +74,21 @@ describe("UserChartService", () => {
     const archive = await service.listMyCharts("user-1");
 
     expect(archive.profile?.id).toBe("profile-1");
+    expect(archive.profile?.isDefault).toBe(true);
     expect(archive.baziCharts[0]?.id).toBe("bazi-1");
     expect(archive.baziCharts[0]?.usefulGods).toEqual(["water"]);
     expect(archive.ziweiCharts[0]?.id).toBe("ziwei-1");
     expect(archive.astrologyCharts[0]?.id).toBe("astrology-1");
+    expect(prisma.profile.findFirst).toHaveBeenCalledWith({
+      where: { userId: "user-1", isDefault: true },
+      orderBy: { createdAt: "asc" }
+    });
     expect(prisma.baziChart.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { profileId: "profile-1" } }));
   });
 
   it("returns an empty archive when the user has no profile", async () => {
     const service = new UserChartService({
-      profile: { findUnique: vi.fn().mockResolvedValue(null) }
+      profile: { findFirst: vi.fn().mockResolvedValue(null) }
     } as never);
 
     await expect(service.listMyCharts("user-without-profile")).resolves.toEqual({

@@ -1,5 +1,5 @@
-import { IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
-import type { Gender, UpsertUserProfileRequest } from "@metamystic/shared";
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
+import type { CreateUserProfileRequest, Gender, UpsertUserProfileRequest } from "@metamystic/shared";
 
 export class UpsertUserProfileDto implements UpsertUserProfileRequest {
   @IsOptional()
@@ -26,4 +26,14 @@ export class UpsertUserProfileDto implements UpsertUserProfileRequest {
   @IsOptional()
   @IsNumber()
   longitude?: number;
+}
+
+export class CreateUserProfileDto extends UpsertUserProfileDto implements CreateUserProfileRequest {
+  @IsOptional()
+  @IsString()
+  label?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
 }

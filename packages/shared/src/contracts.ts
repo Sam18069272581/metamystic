@@ -37,10 +37,22 @@ export interface UpsertProfileRequest {
 
 export interface UpsertUserProfileRequest extends Omit<UpsertProfileRequest, "anonymousUserId"> {}
 
+export interface CreateUserProfileRequest extends UpsertUserProfileRequest {
+  label?: string | undefined;
+  isDefault?: boolean | undefined;
+}
+
 export interface ProfileDto extends UpsertProfileRequest {
   id: string;
+  label?: string | undefined;
+  isDefault?: boolean | undefined;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UserProfileListResponse {
+  profiles: ProfileDto[];
+  defaultProfileId?: string | undefined;
 }
 
 export interface ProfileMemorySignalsDto {

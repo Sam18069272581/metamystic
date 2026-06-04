@@ -1,10 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import type {
   ConsultationTone,
+  CreateUserProfileRequest,
   ProfileDto,
   ProfileMemorySignalsDto,
   UpsertProfileRequest,
-  UpsertUserProfileRequest
+  UpsertUserProfileRequest,
+  UserProfileListResponse
 } from "@metamystic/shared";
 import type { PrismaJsonObject } from "../prisma/prisma-json";
 import { PrismaService } from "../prisma/prisma.service";
@@ -29,28 +31,100 @@ export class ProfileService {
       create: { anonymousUserId: input.anonymousUserId }
     });
 
-    const profile = await this.prisma.profile.upsert({
-      where: { userId: user.id },
-      update: toProfileWrite(input),
-      create: {
-        userId: user.id,
-        ...toProfileWrite(input)
-      }
+    const existingProfile = await this.prisma.profile.findFirst({
+      where: { userId: user.id, isDefault: true },
+      orderBy: { createdAt: "asc" }
     });
+    const data = toProfileWrite(input);
+    const profile = existingProfile
+      ? await this.prisma.profile.update({
+          where: { id: existingProfile.id },
+          data
+        })
+      : await this.prisma.profile.create({
+          data: {
+            userId: user.id,
+            label: input.displayName ?? "self",
+            isDefault: true,
+            ...data
+          }
+        });
 
     return toProfileDto(profile, user.anonymousUserId ?? input.anonymousUserId);
   }
 
   async upsertUserProfile(userId: string, input: UpsertUserProfileRequest): Promise<ProfileDto> {
-    const profile = await this.prisma.profile.upsert({
+    const existingProfile = await this.prisma.profile.findFirst({
+      where: { userId, isDefault: true },
+      orderBy: { createdAt: "asc" }
+    });
+    if (!existingProfile) {
+      return this.createUserProfile(userId, {
+        ...input,
+        label: input.displayName ?? "self",
+        isDefault: true
+      });
+    }
+
+    const profile = await this.prisma.profile.update({
+      where: { id: existingProfile.id },
+      data: toProfileWrite(input)
+    });
+
+    return toProfileDto(profile, "");
+  }
+
+  async listUserProfiles(userId: string): Promise<UserProfileListResponse> {
+    const profiles = await this.prisma.profile.findMany({
       where: { userId },
-      update: toProfileWrite(input),
-      create: {
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+    });
+    return {
+      profiles: profiles.map((profile) => toProfileDto(profile, "")),
+      defaultProfileId: profiles.find((profile) => profile.isDefault)?.id ?? profiles[0]?.id
+    };
+  }
+
+  async createUserProfile(userId: string, input: CreateUserProfileRequest): Promise<ProfileDto> {
+    const profileCount = await this.prisma.profile.count({ where: { userId } });
+    const isDefault = profileCount === 0 ? true : input.isDefault ?? false;
+    if (isDefault && profileCount > 0) {
+      await this.prisma.profile.updateMany({
+        where: { userId },
+        data: { isDefault: false }
+      });
+    }
+
+    const profile = await this.prisma.profile.create({
+      data: {
         userId,
+        label: input.label ?? input.displayName ?? "self",
+        isDefault,
         ...toProfileWrite(input)
       }
     });
 
+    return toProfileDto(profile, "");
+  }
+
+  async setDefaultUserProfile(userId: string, profileId: string): Promise<ProfileDto> {
+    const existingProfile = await this.prisma.profile.findFirst({
+      where: { id: profileId, userId }
+    });
+    if (!existingProfile) {
+      throw new NotFoundException("Profile not found");
+    }
+
+    const [, profile] = await this.prisma.$transaction([
+      this.prisma.profile.updateMany({
+        where: { userId },
+        data: { isDefault: false }
+      }),
+      this.prisma.profile.update({
+        where: { id: profileId },
+        data: { isDefault: true }
+      })
+    ]);
     return toProfileDto(profile, "");
   }
 
@@ -99,6 +173,8 @@ function toProfileWrite(input: UpsertUserProfileRequest) {
 function toProfileDto(
   profile: {
     id: string;
+    label?: string | null;
+    isDefault?: boolean;
     displayName: string | null;
     birthTime: Date;
     birthTimezone: string;
@@ -114,6 +190,8 @@ function toProfileDto(
   return {
     id: profile.id,
     anonymousUserId,
+    label: profile.label ?? undefined,
+    isDefault: profile.isDefault ?? false,
     displayName: profile.displayName ?? undefined,
     birthTime: profile.birthTime.toISOString(),
     birthTimezone: profile.birthTimezone,

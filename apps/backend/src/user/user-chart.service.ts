@@ -19,8 +19,9 @@ export class UserChartService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listMyCharts(userId: string): Promise<UserChartArchiveDto> {
-    const profile = await this.prisma.profile.findUnique({
-      where: { userId }
+    const profile = await this.prisma.profile.findFirst({
+      where: { userId, isDefault: true },
+      orderBy: { createdAt: "asc" }
     });
     if (!profile) {
       return {
@@ -103,6 +104,8 @@ export class UserChartService {
 
 function toProfileDto(profile: {
   id: string;
+  label?: string | null;
+  isDefault?: boolean;
   displayName: string | null;
   birthTime: Date;
   birthTimezone: string;
@@ -116,6 +119,8 @@ function toProfileDto(profile: {
   return {
     id: profile.id,
     anonymousUserId: "",
+    label: profile.label ?? undefined,
+    isDefault: profile.isDefault ?? false,
     displayName: profile.displayName ?? undefined,
     birthTime: profile.birthTime.toISOString(),
     birthTimezone: profile.birthTimezone,

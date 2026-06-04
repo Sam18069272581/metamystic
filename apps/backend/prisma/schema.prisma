@@ -52,7 +52,7 @@ model User {
   emailVerifiedAt DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-  profile         Profile?
+  profiles        Profile[]
   identities      AuthIdentity[]
   refreshTokens   RefreshToken[]
   consultations   Consultation[]
@@ -90,7 +90,9 @@ model RefreshToken {
 
 model Profile {
   id              String         @id @default(cuid())
-  userId          String         @unique
+  userId          String
+  label           String?
+  isDefault       Boolean        @default(false)
   displayName     String?
   birthTime       DateTime
   birthTimezone   String
@@ -107,6 +109,9 @@ model Profile {
   ziweiCharts     ZiweiChart[]
   astrologyCharts AstrologyChart[]
   consultations   Consultation[]
+
+  @@index([userId, isDefault])
+  @@index([userId, createdAt])
 }
 
 model BaziChart {

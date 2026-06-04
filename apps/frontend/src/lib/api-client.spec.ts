@@ -190,6 +190,108 @@ describe("apiClient", () => {
     );
   });
 
+  it("lists the current user's birth profiles", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        json: async () => ({
+          status: "success",
+          data: {
+            defaultProfileId: "profile-1",
+            profiles: [
+              {
+                id: "profile-1",
+                anonymousUserId: "",
+                label: "self",
+                isDefault: true,
+                displayName: "Self",
+                birthTime: "1995-05-20T10:30:00.000Z",
+                birthTimezone: "Europe/Berlin",
+                gender: "female",
+                createdAt: "2026-05-30T00:00:00.000Z",
+                updatedAt: "2026-05-30T00:00:00.000Z"
+              }
+            ]
+          }
+        })
+      })
+    );
+
+    const response = await apiClient.listMyProfiles();
+
+    expect(response.defaultProfileId).toBe("profile-1");
+    expect(response.profiles[0]?.isDefault).toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/profiles",
+      expect.objectContaining({ method: "GET", credentials: "include" })
+    );
+  });
+
+  it("creates a current-user birth profile", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        json: async () => ({
+          status: "success",
+          data: {
+            id: "profile-2",
+            anonymousUserId: "",
+            label: "partner",
+            isDefault: false,
+            birthTime: "1992-08-01T02:00:00.000Z",
+            birthTimezone: "Asia/Shanghai",
+            gender: "male",
+            createdAt: "2026-05-30T00:00:00.000Z",
+            updatedAt: "2026-05-30T00:00:00.000Z"
+          }
+        })
+      })
+    );
+
+    const profile = await apiClient.createMyProfile({
+      label: "partner",
+      birthTime: "1992-08-01T02:00:00.000Z",
+      birthTimezone: "Asia/Shanghai",
+      gender: "male"
+    });
+
+    expect(profile.id).toBe("profile-2");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/profiles",
+      expect.objectContaining({ method: "POST", credentials: "include" })
+    );
+  });
+
+  it("sets the current user's default birth profile", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        json: async () => ({
+          status: "success",
+          data: {
+            id: "profile-2",
+            anonymousUserId: "",
+            label: "partner",
+            isDefault: true,
+            birthTime: "1992-08-01T02:00:00.000Z",
+            birthTimezone: "Asia/Shanghai",
+            gender: "male",
+            createdAt: "2026-05-30T00:00:00.000Z",
+            updatedAt: "2026-05-30T00:00:00.000Z"
+          }
+        })
+      })
+    );
+
+    const profile = await apiClient.setDefaultMyProfile("profile-2");
+
+    expect(profile.isDefault).toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/profiles/profile-2/default",
+      expect.objectContaining({ method: "PATCH", credentials: "include" })
+    );
+  });
+
   it("fetches one current-user chart detail", async () => {
     vi.stubGlobal(
       "fetch",

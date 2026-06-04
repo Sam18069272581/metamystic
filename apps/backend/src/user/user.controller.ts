@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import type {
   ApiResponse,
   AstrologyChartDto,
@@ -10,6 +10,7 @@ import type {
   UserChartArchiveDto,
   UserChartDetailDto,
   UserChartKind,
+  UserProfileListResponse,
   ZiweiChartDto
 } from "@metamystic/shared";
 import { AstrologyService } from "../astrology/astrology.service";
@@ -22,7 +23,7 @@ import { ProfileService } from "../profile/profile.service";
 import { ok } from "../shared/api-response";
 import { ZiweiService } from "../ziwei/ziwei.service";
 import { UserChartService } from "./user-chart.service";
-import { UpsertUserProfileDto } from "./upsert-user-profile.dto";
+import { CreateUserProfileDto, UpsertUserProfileDto } from "./upsert-user-profile.dto";
 
 @UseGuards(JwtAuthGuard)
 @Controller("users/me")
@@ -56,6 +57,27 @@ export class UserController {
     @Body() dto: UpsertUserProfileDto
   ): Promise<ApiResponse<ProfileDto>> {
     return ok(await this.profileService.upsertUserProfile(user.id, dto));
+  }
+
+  @Get("profiles")
+  async listProfiles(@CurrentUser() user: AuthUserDto): Promise<ApiResponse<UserProfileListResponse>> {
+    return ok(await this.profileService.listUserProfiles(user.id));
+  }
+
+  @Post("profiles")
+  async createProfile(
+    @CurrentUser() user: AuthUserDto,
+    @Body() dto: CreateUserProfileDto
+  ): Promise<ApiResponse<ProfileDto>> {
+    return ok(await this.profileService.createUserProfile(user.id, dto));
+  }
+
+  @Patch("profiles/:profileId/default")
+  async setDefaultProfile(
+    @CurrentUser() user: AuthUserDto,
+    @Param("profileId") profileId: string
+  ): Promise<ApiResponse<ProfileDto>> {
+    return ok(await this.profileService.setDefaultUserProfile(user.id, profileId));
   }
 
   @Post("charts/bazi")

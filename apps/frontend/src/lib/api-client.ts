@@ -10,6 +10,7 @@ import type {
   CreateBaziChartRequest,
   CreateAstrologyChartRequest,
   CreateConsultationRequest,
+  CreateUserProfileRequest,
   ProfileDto,
   ProfileMemorySignalsDto,
   LoginRequest,
@@ -20,6 +21,7 @@ import type {
   UserChartArchiveDto,
   UserChartDetailDto,
   UserChartKind,
+  UserProfileListResponse,
   CreateZiweiChartRequest,
   ZiweiChartDto
 } from "@metamystic/shared";
@@ -89,6 +91,25 @@ export const apiClient = {
     return request<ProfileDto>("/users/me/profile", {
       method: "POST",
       body: JSON.stringify(input)
+    });
+  },
+
+  listMyProfiles(): Promise<UserProfileListResponse> {
+    return request<UserProfileListResponse>("/users/me/profiles", {
+      method: "GET"
+    });
+  },
+
+  createMyProfile(input: CreateUserProfileRequest): Promise<ProfileDto> {
+    return request<ProfileDto>("/users/me/profiles", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  setDefaultMyProfile(profileId: string): Promise<ProfileDto> {
+    return request<ProfileDto>(`/users/me/profiles/${encodeURIComponent(profileId)}/default`, {
+      method: "PATCH"
     });
   },
 
