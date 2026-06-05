@@ -193,6 +193,7 @@ export interface CompatibilityDimensionDto {
 }
 
 export interface CompatibilityReadingDto {
+  id: string;
   profiles: {
     a: { id: string; label: string };
     b: { id: string; label: string };
@@ -213,7 +214,14 @@ export interface CompatibilityReadingDto {
   risks: string[];
   advice: string[];
   disclaimer: string;
+  createdAt: string;
 }
+
+export interface CompatibilityReadingListResponse {
+  readings: CompatibilityReadingDto[];
+}
+
+export type PublicCompatibilityShareDto = CompatibilityReadingDto;
 
 export type ZiweiPalaceName =
   | "life"

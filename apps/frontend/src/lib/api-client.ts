@@ -8,6 +8,7 @@ import type {
   ConsultationListResponse,
   ConsultationStreamEvent,
   CompatibilityReadingDto,
+  CompatibilityReadingListResponse,
   CreateBaziChartRequest,
   CreateAstrologyChartRequest,
   CreateCompatibilityRequest,
@@ -15,6 +16,7 @@ import type {
   CreateUserProfileRequest,
   ProfileDto,
   ProfileMemorySignalsDto,
+  PublicCompatibilityShareDto,
   LoginRequest,
   PublicBaziShareDto,
   RegisterRequest,
@@ -119,6 +121,24 @@ export const apiClient = {
     return request<CompatibilityReadingDto>("/users/me/compatibility", {
       method: "POST",
       body: JSON.stringify(input)
+    });
+  },
+
+  listMyCompatibilityReadings(): Promise<CompatibilityReadingListResponse> {
+    return request<CompatibilityReadingListResponse>("/users/me/compatibility", {
+      method: "GET"
+    });
+  },
+
+  getMyCompatibilityReading(readingId: string): Promise<CompatibilityReadingDto> {
+    return request<CompatibilityReadingDto>(`/users/me/compatibility/${encodeURIComponent(readingId)}`, {
+      method: "GET"
+    });
+  },
+
+  getPublicCompatibilityShare(readingId: string): Promise<PublicCompatibilityShareDto> {
+    return request<PublicCompatibilityShareDto>(`/compatibility/${encodeURIComponent(readingId)}/share`, {
+      method: "GET"
     });
   },
 

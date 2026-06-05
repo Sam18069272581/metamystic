@@ -3,11 +3,16 @@ import type {
   BaziChartDto,
   CompatibilityDimensionDto,
   CompatibilityReadingDto,
+  CompatibilityReadingListResponse,
   CreateCompatibilityRequest,
-  FiveElement
+  FiveElement,
+  PublicCompatibilityShareDto
 } from "@metamystic/shared";
+import { asPrismaJson } from "../prisma/prisma-json";
 import { BaziService } from "../bazi/bazi.service";
 import { PrismaService } from "../prisma/prisma.service";
+
+const readingLimit = 20;
 
 const elementLabels: Record<FiveElement, string> = {
   wood: "木",
@@ -88,6 +93,19 @@ const branchHarms: Record<string, string> = {
   酉戌: "酉戌害"
 };
 
+interface CompatibilityProfile {
+  id: string;
+  userId: string;
+  label: string | null;
+  displayName: string | null;
+}
+
+interface StoredCompatibilityReading {
+  id: string;
+  reading: unknown;
+  createdAt: Date;
+}
+
 @Injectable()
 export class CompatibilityService {
   constructor(
@@ -96,6 +114,62 @@ export class CompatibilityService {
   ) {}
 
   async analyzeUserProfiles(userId: string, input: CreateCompatibilityRequest): Promise<CompatibilityReadingDto> {
+    const { profileA, profileB } = await this.loadOwnedProfiles(userId, input);
+    const [chartA, chartB] = await Promise.all([
+      this.baziService.createChart(input.profileAId),
+      this.baziService.createChart(input.profileBId)
+    ]);
+    const reading = buildCompatibilityReading(profileA, profileB, chartA, chartB);
+    const saved = await this.prisma.compatibilityReading.create({
+      data: {
+        userId,
+        profileAId: input.profileAId,
+        profileBId: input.profileBId,
+        chartAId: chartA.id,
+        chartBId: chartB.id,
+        overallScore: reading.overallScore,
+        level: reading.level,
+        reading: asPrismaJson(reading)
+      }
+    });
+    return attachStoredFields(saved, reading);
+  }
+
+  async listUserReadings(userId: string): Promise<CompatibilityReadingListResponse> {
+    const readings = await this.prisma.compatibilityReading.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: readingLimit
+    });
+    return {
+      readings: readings.map(toCompatibilityReadingDto)
+    };
+  }
+
+  async getUserReading(userId: string, readingId: string): Promise<CompatibilityReadingDto> {
+    const reading = await this.prisma.compatibilityReading.findFirst({
+      where: { id: readingId, userId }
+    });
+    if (!reading) {
+      throw new NotFoundException("Compatibility reading not found");
+    }
+    return toCompatibilityReadingDto(reading);
+  }
+
+  async getPublicShareReading(readingId: string): Promise<PublicCompatibilityShareDto> {
+    const reading = await this.prisma.compatibilityReading.findUnique({
+      where: { id: readingId }
+    });
+    if (!reading) {
+      throw new NotFoundException("Compatibility reading not found");
+    }
+    return toCompatibilityReadingDto(reading);
+  }
+
+  private async loadOwnedProfiles(
+    userId: string,
+    input: CreateCompatibilityRequest
+  ): Promise<{ profileA: CompatibilityProfile; profileB: CompatibilityProfile }> {
     if (input.profileAId === input.profileBId) {
       throw new NotFoundException("Please choose two different profiles");
     }
@@ -116,42 +190,46 @@ export class CompatibilityService {
     if (!profileA || !profileB) {
       throw new NotFoundException("Profile not found");
     }
-
-    const [chartA, chartB] = await Promise.all([
-      this.baziService.createChart(input.profileAId),
-      this.baziService.createChart(input.profileBId)
-    ]);
-    const fiveElement = scoreFiveElement(chartA, chartB);
-    const stems = scoreStems(chartA, chartB);
-    const branches = scoreBranches(chartA, chartB);
-    const dayMasters = scoreDayMasters(chartA, chartB);
-    const overallScore = clampScore(Math.round(
-      fiveElement.score * 0.35 + stems.score * 0.2 + branches.score * 0.25 + dayMasters.score * 0.2
-    ));
-
-    return {
-      profiles: {
-        a: { id: profileA.id, label: profileA.label ?? profileA.displayName ?? "命主 A" },
-        b: { id: profileB.id, label: profileB.label ?? profileB.displayName ?? "命主 B" }
-      },
-      charts: {
-        a: toChartSummary(chartA),
-        b: toChartSummary(chartB)
-      },
-      overallScore,
-      level: toLevel(overallScore),
-      dimensions: {
-        fiveElement,
-        stems,
-        branches,
-        dayMasters
-      },
-      advantages: buildAdvantages(fiveElement, stems, branches, dayMasters),
-      risks: buildRisks(fiveElement, stems, branches, dayMasters),
-      advice: buildAdvice(chartA, chartB, overallScore),
-      disclaimer: "合盘用于关系模式观察和沟通建议，不用于替代真实沟通、法律或医疗决策。"
-    };
+    return { profileA, profileB };
   }
+}
+
+function buildCompatibilityReading(
+  profileA: CompatibilityProfile,
+  profileB: CompatibilityProfile,
+  chartA: BaziChartDto,
+  chartB: BaziChartDto
+): Omit<CompatibilityReadingDto, "id" | "createdAt"> {
+  const fiveElement = scoreFiveElement(chartA, chartB);
+  const stems = scoreStems(chartA, chartB);
+  const branches = scoreBranches(chartA, chartB);
+  const dayMasters = scoreDayMasters(chartA, chartB);
+  const overallScore = clampScore(Math.round(
+    fiveElement.score * 0.35 + stems.score * 0.2 + branches.score * 0.25 + dayMasters.score * 0.2
+  ));
+
+  return {
+    profiles: {
+      a: { id: profileA.id, label: profileA.label ?? profileA.displayName ?? "命主 A" },
+      b: { id: profileB.id, label: profileB.label ?? profileB.displayName ?? "命主 B" }
+    },
+    charts: {
+      a: toChartSummary(chartA),
+      b: toChartSummary(chartB)
+    },
+    overallScore,
+    level: toLevel(overallScore),
+    dimensions: {
+      fiveElement,
+      stems,
+      branches,
+      dayMasters
+    },
+    advantages: buildAdvantages(fiveElement, stems, branches, dayMasters),
+    risks: buildRisks(fiveElement, stems, branches, dayMasters),
+    advice: buildAdvice(chartA, chartB, overallScore),
+    disclaimer: "合盘用于关系模式观察和沟通建议，不用于替代真实沟通、法律或医疗决策。"
+  };
 }
 
 function scoreFiveElement(a: BaziChartDto, b: BaziChartDto): CompatibilityDimensionDto {
@@ -191,7 +269,11 @@ function scoreStems(a: BaziChartDto, b: BaziChartDto): CompatibilityDimensionDto
   return {
     score,
     summary: combinations.length >= clashes.length ? "天干互动偏合，外在表达容易互相吸引" : "天干冲动较多，容易在表达方式上较劲",
-    items: [...combinations.map((item) => `${item}，有吸引与协作感`), ...clashes.map((item) => `${item}，表达和决策节奏易冲突`), "天干代表外显互动，适合作为沟通风格参考"]
+    items: [
+      ...combinations.map((item) => `${item}，有吸引与协作感`),
+      ...clashes.map((item) => `${item}，表达和决策节奏易冲突`),
+      "天干代表外显互动，适合作为沟通风格参考"
+    ]
   };
 }
 
@@ -295,6 +377,22 @@ function buildAdvice(a: BaziChartDto, b: BaziChartDto, score: number): string[] 
     score >= 70 ? "适合把共同目标具体化，越有计划越能放大互补优势。" : "先建立边界和沟通规则，再推进深度承诺。",
     "遇到冲突时少问谁对谁错，多问这件事触发了谁的安全感。"
   ];
+}
+
+function attachStoredFields(
+  saved: { id: string; createdAt: Date },
+  reading: Omit<CompatibilityReadingDto, "id" | "createdAt">
+): CompatibilityReadingDto {
+  return {
+    id: saved.id,
+    ...reading,
+    createdAt: saved.createdAt.toISOString()
+  };
+}
+
+function toCompatibilityReadingDto(stored: StoredCompatibilityReading): CompatibilityReadingDto {
+  const reading = stored.reading as Omit<CompatibilityReadingDto, "id" | "createdAt">;
+  return attachStoredFields(stored, reading);
 }
 
 function clampScore(score: number): number {

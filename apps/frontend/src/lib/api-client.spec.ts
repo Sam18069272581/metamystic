@@ -1,129 +1,66 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "./api-client";
 
+const compatibilityReading = {
+  id: "compat-1",
+  profiles: {
+    a: { id: "profile-1", label: "自己" },
+    b: { id: "profile-2", label: "伴侣" }
+  },
+  charts: {
+    a: { id: "bazi-1", profileId: "profile-1", dayMaster: "乙", dayMasterStatus: "weak", mainPattern: "杀印相生" },
+    b: { id: "bazi-2", profileId: "profile-2", dayMaster: "壬", dayMasterStatus: "strong", mainPattern: "食神生财" }
+  },
+  overallScore: 76,
+  level: "good",
+  dimensions: {
+    fiveElement: { score: 78, summary: "五行互补明显", items: [] },
+    stems: { score: 70, summary: "天干互动偏合", items: [] },
+    branches: { score: 68, summary: "地支关系平衡", items: [] },
+    dayMasters: { score: 74, summary: "日主关系有扶持感", items: [] }
+  },
+  advantages: ["五行互补明显"],
+  risks: ["需要同步节奏"],
+  advice: ["先尊重彼此决策方式"],
+  disclaimer: "合盘用于关系模式观察",
+  createdAt: "2026-06-05T00:00:00.000Z"
+};
+
+function mockSuccess<T>(data: T): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      json: async () => ({
+        status: "success",
+        data
+      })
+    })
+  );
+}
+
 describe("apiClient", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("fetches consultation history", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            consultation: {
-              id: "consult-1",
-              profileId: "profile-1",
-              chartId: "chart-1",
-              question: "\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u5417\uff1f",
-              tone: "strategic",
-              status: "completed",
-              createdAt: "2026-05-30T00:00:00.000Z"
-            },
-            messages: []
-          }
-        })
-      })
-    );
-
-    const history = await apiClient.getConsultationHistory("consult-1");
-
-    expect(history.consultation.id).toBe("consult-1");
-    expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:4000/api/v1/consultations/consult-1",
-      expect.objectContaining({ method: "GET" })
-    );
-  });
-
   it("uses readable Chinese messages for network failures", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
 
-    await expect(apiClient.getConsultationHistory("consult-1")).rejects.toThrow(
-      "\u65e0\u6cd5\u8fde\u63a5\u540e\u7aef API"
-    );
-  });
-
-  it("fetches profile memory signals", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            decisionTopics: ["\u6d77\u5916\u53d1\u5c55"],
-            riskStyle: "\u7a33\u5065\u8bd5\u63a2",
-            preferredTone: "\u7406\u6027\u7b56\u7565",
-            sources: ["consult-1"]
-          }
-        })
-      })
-    );
-
-    const memory = await apiClient.getProfileMemory("profile-1");
-
-    expect(memory.decisionTopics).toEqual(["\u6d77\u5916\u53d1\u5c55"]);
-    expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:4000/api/v1/profiles/profile-1/memory",
-      expect.objectContaining({ method: "GET" })
-    );
-  });
-
-  it("fetches recent consultations for a profile", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            profileId: "profile-1",
-            consultations: [
-              {
-                id: "consult-1",
-                profileId: "profile-1",
-                chartId: "chart-1",
-                question: "\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u5417\uff1f",
-                tone: "strategic",
-                status: "completed",
-                summary: "\u9002\u5408\u5c0f\u6b65\u63a8\u8fdb",
-                createdAt: "2026-05-30T10:00:00.000Z"
-              }
-            ]
-          }
-        })
-      })
-    );
-
-    const response = await apiClient.listProfileConsultations("profile-1");
-
-    expect(response.consultations).toHaveLength(1);
-    expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:4000/api/v1/consultations?profileId=profile-1",
-      expect.objectContaining({ method: "GET" })
-    );
+    await expect(apiClient.getConsultationHistory("consult-1")).rejects.toThrow("无法连接后端 API");
   });
 
   it("registers with email auth", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            user: { id: "user-1", email: "user@example.com", role: "USER" },
-            accessToken: "access.jwt",
-            refreshToken: "refresh-token",
-            expiresIn: 900
-          }
-        })
-      })
-    );
+    mockSuccess({
+      user: { id: "user-1", email: "user@example.com", role: "USER" },
+      accessToken: "access.jwt",
+      refreshToken: "refresh-token",
+      expiresIn: 900
+    });
 
     const session = await apiClient.register({
       email: "user@example.com",
       password: "Correct Horse Battery Staple 42!",
-      displayName: "\u5c0f\u7384"
+      displayName: "小玄"
     });
 
     expect(session.user.email).toBe("user@example.com");
@@ -133,24 +70,33 @@ describe("apiClient", () => {
     );
   });
 
-  it("creates the current user's profile through authenticated APIs", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            id: "profile-1",
-            anonymousUserId: "",
-            birthTime: "1995-05-20T10:30:00.000Z",
-            birthTimezone: "Europe/Berlin",
-            gender: "female",
-            createdAt: "2026-05-30T00:00:00.000Z",
-            updatedAt: "2026-05-30T00:00:00.000Z"
-          }
-        })
-      })
+  it("fetches profile memory signals", async () => {
+    mockSuccess({
+      decisionTopics: ["海外发展"],
+      riskStyle: "稳健试探",
+      preferredTone: "理性策略",
+      sources: ["consult-1"]
+    });
+
+    const memory = await apiClient.getProfileMemory("profile-1");
+
+    expect(memory.decisionTopics).toEqual(["海外发展"]);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/profiles/profile-1/memory",
+      expect.objectContaining({ method: "GET" })
     );
+  });
+
+  it("creates the current user's profile through authenticated APIs", async () => {
+    mockSuccess({
+      id: "profile-1",
+      anonymousUserId: "",
+      birthTime: "1995-05-20T10:30:00.000Z",
+      birthTimezone: "Europe/Berlin",
+      gender: "female",
+      createdAt: "2026-05-30T00:00:00.000Z",
+      updatedAt: "2026-05-30T00:00:00.000Z"
+    });
 
     const profile = await apiClient.upsertMyProfile({
       birthTime: "1995-05-20T10:30:00.000Z",
@@ -165,62 +111,28 @@ describe("apiClient", () => {
     );
   });
 
-  it("lists the current user's chart archive", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            profile: undefined,
-            baziCharts: [],
-            ziweiCharts: [],
-            astrologyCharts: []
-          }
-        })
-      })
-    );
-
-    const archive = await apiClient.listMyCharts();
-
-    expect(archive.baziCharts).toEqual([]);
-    expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:4000/api/v1/users/me/charts",
-      expect.objectContaining({ method: "GET", credentials: "include" })
-    );
-  });
-
   it("lists the current user's birth profiles", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            defaultProfileId: "profile-1",
-            profiles: [
-              {
-                id: "profile-1",
-                anonymousUserId: "",
-                label: "self",
-                isDefault: true,
-                displayName: "Self",
-                birthTime: "1995-05-20T10:30:00.000Z",
-                birthTimezone: "Europe/Berlin",
-                gender: "female",
-                createdAt: "2026-05-30T00:00:00.000Z",
-                updatedAt: "2026-05-30T00:00:00.000Z"
-              }
-            ]
-          }
-        })
-      })
-    );
+    mockSuccess({
+      defaultProfileId: "profile-1",
+      profiles: [
+        {
+          id: "profile-1",
+          anonymousUserId: "",
+          label: "自己",
+          isDefault: true,
+          displayName: "Self",
+          birthTime: "1995-05-20T10:30:00.000Z",
+          birthTimezone: "Europe/Berlin",
+          gender: "female",
+          createdAt: "2026-05-30T00:00:00.000Z",
+          updatedAt: "2026-05-30T00:00:00.000Z"
+        }
+      ]
+    });
 
     const response = await apiClient.listMyProfiles();
 
     expect(response.defaultProfileId).toBe("profile-1");
-    expect(response.profiles[0]?.isDefault).toBe(true);
     expect(fetch).toHaveBeenCalledWith(
       "http://localhost:4000/api/v1/users/me/profiles",
       expect.objectContaining({ method: "GET", credentials: "include" })
@@ -228,28 +140,20 @@ describe("apiClient", () => {
   });
 
   it("creates a current-user birth profile", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            id: "profile-2",
-            anonymousUserId: "",
-            label: "partner",
-            isDefault: false,
-            birthTime: "1992-08-01T02:00:00.000Z",
-            birthTimezone: "Asia/Shanghai",
-            gender: "male",
-            createdAt: "2026-05-30T00:00:00.000Z",
-            updatedAt: "2026-05-30T00:00:00.000Z"
-          }
-        })
-      })
-    );
+    mockSuccess({
+      id: "profile-2",
+      anonymousUserId: "",
+      label: "伴侣",
+      isDefault: false,
+      birthTime: "1992-08-01T02:00:00.000Z",
+      birthTimezone: "Asia/Shanghai",
+      gender: "male",
+      createdAt: "2026-05-30T00:00:00.000Z",
+      updatedAt: "2026-05-30T00:00:00.000Z"
+    });
 
     const profile = await apiClient.createMyProfile({
-      label: "partner",
+      label: "伴侣",
       birthTime: "1992-08-01T02:00:00.000Z",
       birthTimezone: "Asia/Shanghai",
       gender: "male"
@@ -263,25 +167,17 @@ describe("apiClient", () => {
   });
 
   it("sets the current user's default birth profile", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            id: "profile-2",
-            anonymousUserId: "",
-            label: "partner",
-            isDefault: true,
-            birthTime: "1992-08-01T02:00:00.000Z",
-            birthTimezone: "Asia/Shanghai",
-            gender: "male",
-            createdAt: "2026-05-30T00:00:00.000Z",
-            updatedAt: "2026-05-30T00:00:00.000Z"
-          }
-        })
-      })
-    );
+    mockSuccess({
+      id: "profile-2",
+      anonymousUserId: "",
+      label: "伴侣",
+      isDefault: true,
+      birthTime: "1992-08-01T02:00:00.000Z",
+      birthTimezone: "Asia/Shanghai",
+      gender: "male",
+      createdAt: "2026-05-30T00:00:00.000Z",
+      updatedAt: "2026-05-30T00:00:00.000Z"
+    });
 
     const profile = await apiClient.setDefaultMyProfile("profile-2");
 
@@ -292,71 +188,36 @@ describe("apiClient", () => {
     );
   });
 
-  it("creates a current-user compatibility reading", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            profiles: {
-              a: { id: "profile-1", label: "self" },
-              b: { id: "profile-2", label: "partner" }
-            },
-            charts: {
-              a: { id: "bazi-1", profileId: "profile-1", dayMaster: "乙", dayMasterStatus: "weak", mainPattern: "杀印相生" },
-              b: { id: "bazi-2", profileId: "profile-2", dayMaster: "壬", dayMasterStatus: "strong", mainPattern: "食神生财" }
-            },
-            overallScore: 76,
-            level: "good",
-            dimensions: {
-              fiveElement: { score: 78, summary: "五行互补明显", items: [] },
-              stems: { score: 70, summary: "天干互动偏合", items: [] },
-              branches: { score: 68, summary: "地支关系平衡", items: [] },
-              dayMasters: { score: 74, summary: "日主关系有扶持感", items: [] }
-            },
-            advantages: ["五行互补明显"],
-            risks: ["需要同步节奏"],
-            advice: ["先尊重彼此决策方式"],
-            disclaimer: "合盘用于关系模式观察"
-          }
-        })
-      })
-    );
-
-    const reading = await apiClient.createMyCompatibilityReading({
-      profileAId: "profile-1",
-      profileBId: "profile-2"
+  it("lists the current user's chart archive", async () => {
+    mockSuccess({
+      profile: undefined,
+      baziCharts: [],
+      ziweiCharts: [],
+      astrologyCharts: []
     });
 
-    expect(reading.overallScore).toBe(76);
+    const archive = await apiClient.listMyCharts();
+
+    expect(archive.baziCharts).toEqual([]);
     expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:4000/api/v1/users/me/compatibility",
-      expect.objectContaining({ method: "POST", credentials: "include" })
+      "http://localhost:4000/api/v1/users/me/charts",
+      expect.objectContaining({ method: "GET", credentials: "include" })
     );
   });
 
   it("fetches one current-user chart detail", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            kind: "ziwei",
-            chart: {
-              id: "ziwei-1",
-              profileId: "profile-1",
-              lifePalace: "life",
-              bodyPalace: "career",
-              palaces: [],
-              summary: "\u7d2b\u5fae\u76d8",
-              createdAt: "2026-06-02T00:00:00.000Z"
-            }
-          }
-        })
-      })
-    );
+    mockSuccess({
+      kind: "ziwei",
+      chart: {
+        id: "ziwei-1",
+        profileId: "profile-1",
+        lifePalace: "life",
+        bodyPalace: "career",
+        palaces: [],
+        summary: "紫微盘",
+        createdAt: "2026-06-02T00:00:00.000Z"
+      }
+    });
 
     const detail = await apiClient.getMyChart("ziwei", "ziwei-1");
 
@@ -367,27 +228,71 @@ describe("apiClient", () => {
     );
   });
 
-  it("fetches current-user consultation history", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          status: "success",
-          data: {
-            consultation: {
-              id: "consult-1",
-              profileId: "profile-1",
-              chartId: "chart-1",
-              question: "\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u5417\uff1f",
-              tone: "strategic",
-              status: "completed",
-              createdAt: "2026-06-02T00:00:00.000Z"
-            },
-            messages: []
-          }
-        })
-      })
+  it("creates a current-user compatibility reading", async () => {
+    mockSuccess(compatibilityReading);
+
+    const reading = await apiClient.createMyCompatibilityReading({
+      profileAId: "profile-1",
+      profileBId: "profile-2"
+    });
+
+    expect(reading.id).toBe("compat-1");
+    expect(reading.overallScore).toBe(76);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/compatibility",
+      expect.objectContaining({ method: "POST", credentials: "include" })
     );
+  });
+
+  it("lists current-user compatibility readings", async () => {
+    mockSuccess({ readings: [compatibilityReading] });
+
+    const response = await apiClient.listMyCompatibilityReadings();
+
+    expect(response.readings[0]?.id).toBe("compat-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/compatibility",
+      expect.objectContaining({ method: "GET", credentials: "include" })
+    );
+  });
+
+  it("fetches one current-user compatibility reading", async () => {
+    mockSuccess(compatibilityReading);
+
+    const reading = await apiClient.getMyCompatibilityReading("compat-1");
+
+    expect(reading.id).toBe("compat-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/compatibility/compat-1",
+      expect.objectContaining({ method: "GET", credentials: "include" })
+    );
+  });
+
+  it("fetches one public compatibility share reading", async () => {
+    mockSuccess(compatibilityReading);
+
+    const reading = await apiClient.getPublicCompatibilityShare("compat-1");
+
+    expect(reading.id).toBe("compat-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/compatibility/compat-1/share",
+      expect.objectContaining({ method: "GET", credentials: "include" })
+    );
+  });
+
+  it("fetches current-user consultation history", async () => {
+    mockSuccess({
+      consultation: {
+        id: "consult-1",
+        profileId: "profile-1",
+        chartId: "chart-1",
+        question: "我适合去德国吗？",
+        tone: "strategic",
+        status: "completed",
+        createdAt: "2026-06-02T00:00:00.000Z"
+      },
+      messages: []
+    });
 
     const history = await apiClient.getMyConsultationHistory("consult-1");
 

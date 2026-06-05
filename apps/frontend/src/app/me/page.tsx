@@ -31,19 +31,22 @@ export default function MePage() {
     profileBId: ""
   });
   const [compatibility, setCompatibility] = useState<CompatibilityReadingDto | undefined>();
+  const [compatibilityHistory, setCompatibilityHistory] = useState<CompatibilityReadingDto[]>([]);
   const [savingProfile, setSavingProfile] = useState(false);
   const [readingCompatibility, setReadingCompatibility] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
   async function loadAccount(): Promise<void> {
-    const [nextUser, nextArchive, nextProfiles] = await Promise.all([
+    const [nextUser, nextArchive, nextProfiles, nextCompatibilityHistory] = await Promise.all([
       apiClient.me(),
       apiClient.listMyCharts(),
-      apiClient.listMyProfiles()
+      apiClient.listMyProfiles(),
+      apiClient.listMyCompatibilityReadings()
     ]);
     setUser(nextUser);
     setArchive(nextArchive);
     setProfiles(nextProfiles);
+    setCompatibilityHistory(nextCompatibilityHistory.readings);
     setCompatibilityInput((current) => {
       if (current.profileAId && current.profileBId) {
         return current;
@@ -114,7 +117,9 @@ export default function MePage() {
     setReadingCompatibility(true);
     setError(undefined);
     try {
-      setCompatibility(await apiClient.createMyCompatibilityReading(compatibilityInput));
+      const reading = await apiClient.createMyCompatibilityReading(compatibilityInput);
+      setCompatibility(reading);
+      setCompatibilityHistory((current) => [reading, ...current.filter((item) => item.id !== reading.id)].slice(0, 20));
     } catch (unknownError) {
       setError(unknownError instanceof Error ? unknownError.message : "\u65e0\u6cd5\u751f\u6210\u5408\u76d8\u5206\u6790");
     } finally {
@@ -254,6 +259,28 @@ export default function MePage() {
             </p>
           ) : null}
           {compatibility ? <CompatibilityCard reading={compatibility} /> : null}
+          {compatibilityHistory.length > 0 ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-white/40">{"最近合盘"}</p>
+              {compatibilityHistory.slice(0, 3).map((reading) => (
+                <Link
+                  key={reading.id}
+                  href={`/share/compatibility/${reading.id}`}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3 transition hover:border-amber-200/30"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white/82">
+                      {`${reading.profiles.a.label} × ${reading.profiles.b.label}`}
+                    </p>
+                    <p className="mt-1 text-xs text-white/42">{new Date(reading.createdAt).toLocaleString("zh-CN")}</p>
+                  </div>
+                  <span className="rounded-full border border-amber-200/20 bg-amber-200/10 px-3 py-1 text-xs text-amber-100">
+                    {reading.overallScore}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="mystic-card rounded-3xl p-5">
@@ -323,7 +350,7 @@ function CompatibilityCard({ reading }: { reading: CompatibilityReadingDto }) {
     <div className="mt-4 space-y-3 rounded-2xl border border-amber-200/15 bg-amber-200/[0.045] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-white/86">{`${reading.profiles.a.label} 脳 ${reading.profiles.b.label}`}</p>
+          <p className="text-sm font-semibold text-white/86">{`${reading.profiles.a.label} × ${reading.profiles.b.label}`}</p>
           <p className="mt-1 text-xs text-white/45">{levelText(reading.level)}</p>
         </div>
         <div className="text-right">
