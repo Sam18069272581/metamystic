@@ -12,6 +12,7 @@ import type {
   UserProfileListResponse
 } from "@metamystic/shared";
 import { CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
+import { ShareButton } from "@/components/share/share-button";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
 
@@ -263,21 +264,25 @@ export default function MePage() {
             <div className="mt-4 space-y-2">
               <p className="text-xs text-white/40">{"最近合盘"}</p>
               {compatibilityHistory.slice(0, 3).map((reading) => (
-                <Link
+                <div
                   key={reading.id}
-                  href={`/share/compatibility/${reading.id}`}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3 transition hover:border-amber-200/30"
                 >
-                  <div className="min-w-0">
+                  <Link href={`/share/compatibility/${reading.id}`} className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-white/82">
                       {`${reading.profiles.a.label} × ${reading.profiles.b.label}`}
                     </p>
                     <p className="mt-1 text-xs text-white/42">{new Date(reading.createdAt).toLocaleString("zh-CN")}</p>
-                  </div>
-                  <span className="rounded-full border border-amber-200/20 bg-amber-200/10 px-3 py-1 text-xs text-amber-100">
+                  </Link>
+                  <span className="shrink-0 rounded-full border border-amber-200/20 bg-amber-200/10 px-3 py-1 text-xs text-amber-100">
                     {reading.overallScore}
                   </span>
-                </Link>
+                  <ShareButton
+                    path={`/share/compatibility/${reading.id}`}
+                    text={`缘分分 ${reading.overallScore} · ${levelText(reading.level)}`}
+                    title={`${reading.profiles.a.label} × ${reading.profiles.b.label} 的八字合盘`}
+                  />
+                </div>
               ))}
             </div>
           ) : null}
