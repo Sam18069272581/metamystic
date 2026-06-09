@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Share2 } from "lucide-react";
-import { buildAbsoluteShareUrl, shareOrCopy, type SharePayload } from "@/lib/share";
+import { buildAbsoluteShareUrl, shareOrCopy, statusText, type SharePayload, type ShareStatus } from "@/lib/share";
 
 export function ShareButton({
   className,
@@ -15,7 +15,7 @@ export function ShareButton({
   text: string;
   title: string;
 }) {
-  const [status, setStatus] = useState<"idle" | "copied" | "shared" | "unsupported">("idle");
+  const [status, setStatus] = useState<ShareStatus>("idle");
   const url = useMemo(() => buildAbsoluteShareUrl(path), [path]);
 
   async function handleShare(): Promise<void> {
@@ -37,17 +37,4 @@ export function ShareButton({
       {statusText(status)}
     </button>
   );
-}
-
-function statusText(status: "idle" | "copied" | "shared" | "unsupported"): string {
-  if (status === "copied") {
-    return "已复制";
-  }
-  if (status === "shared") {
-    return "已分享";
-  }
-  if (status === "unsupported") {
-    return "无法分享";
-  }
-  return "分享";
 }

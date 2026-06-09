@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildAbsoluteShareUrl, shareOrCopy } from "./share";
+import { buildAbsoluteShareUrl, shareOrCopy, statusText } from "./share";
 
 describe("share utilities", () => {
   afterEach(() => {
@@ -54,5 +54,12 @@ describe("share utilities", () => {
         url: "https://metamystic.vercel.app/share/compatibility/compat-1"
       })
     ).resolves.toBe("unsupported");
+  });
+
+  it("returns readable Chinese labels for share button states", () => {
+    expect(statusText("idle")).toBe("分享");
+    expect(statusText("copied")).toBe("已复制");
+    expect(statusText("shared")).toBe("已分享");
+    expect(statusText("unsupported")).toBe("无法分享");
   });
 });
