@@ -1,5 +1,6 @@
 import type { BaziChartDto, ConsultationTone, KnowledgeChunkDto } from "@metamystic/shared";
 import { getCitationSource, getCitationTitle } from "./consultation-citation";
+import { formatPromptShenshaInsights } from "./shensha-prompt-insights";
 
 export interface ConsultationPromptInput {
   question: string;
@@ -38,6 +39,9 @@ export function buildConsultationPrompt(input: ConsultationPromptInput): Consult
       `\u4e3b\u683c\u5c40\uff1a${input.chart.mainPattern}`,
       `\u56db\u67f1\uff1a${formatPillars(input.chart.pillars)}`,
       `\u4e94\u884c\u5206\u5e03\uff1a${formatElements(input.chart.elements)}`,
+      "",
+      "\u3010\u795e\u715e\u8f85\u52a9\u89e3\u8bfb\u3011",
+      formatPromptShenshaInsights(input.chart.pillars),
       "",
       "\u3010RAG \u77e5\u8bc6\u4f9d\u636e\u3011",
       formatCitations(input.citations),
