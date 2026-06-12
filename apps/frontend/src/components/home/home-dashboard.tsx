@@ -7,6 +7,7 @@ import { BookOpen, CupSoda, MessageCircle, RefreshCw, Sparkles } from "lucide-re
 import type { DailyFortuneDto, FiveElement } from "@metamystic/shared";
 import { ShareButton } from "@/components/share/share-button";
 import { apiClient } from "@/lib/api-client";
+import { getDailyFortunePrimaryAction } from "./home-dashboard-view";
 
 const entries = [
   { label: "AI 命理对话", href: "/consult", icon: MessageCircle, active: true },
@@ -46,6 +47,7 @@ export function HomeDashboard() {
   }, []);
 
   const display = fortune ?? fallbackFortune;
+  const primaryAction = getDailyFortunePrimaryAction(display.status);
   const shareText = `${display.date} 今日签语：${display.score}分。${display.title} ${display.advice[0] ?? ""}`;
 
   return (
@@ -87,10 +89,10 @@ export function HomeDashboard() {
 
         <div className="mt-4 grid grid-cols-[1fr_auto_auto] gap-2">
           <Link
-            href={display.status === "needs_profile" ? "/me" : "/consult"}
+            href={primaryAction.href}
             className="rounded-2xl bg-[#6d4bd0] px-4 py-3 text-center text-sm font-semibold text-white shadow-glow transition hover:bg-[#7b58df]"
           >
-            {display.status === "ready" ? "开始 AI 命理分析" : "完善我的档案"}
+            {primaryAction.label}
           </Link>
           <ShareButton
             className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/15"
