@@ -1,3 +1,5 @@
+import { normalizePublicOrigin } from "./public-app-url";
+
 export type CorsOrigin = string | RegExp;
 
 export function buildCorsOrigins(env: Partial<Record<"FRONTEND_APP_URL" | "CORS_ORIGINS", string | undefined>>): CorsOrigin[] {
@@ -5,9 +7,8 @@ export function buildCorsOrigins(env: Partial<Record<"FRONTEND_APP_URL" | "CORS_
     env.FRONTEND_APP_URL,
     ...(env.CORS_ORIGINS?.split(",") ?? [])
   ]
-    .map((origin) => origin?.trim())
-    .filter((origin): origin is string => Boolean(origin))
-    .map((origin) => origin.replace(/\/+$/, ""));
+    .map((origin) => normalizePublicOrigin(origin))
+    .filter((origin): origin is string => Boolean(origin));
 
   return [
     /^http:\/\/localhost:\d+$/,

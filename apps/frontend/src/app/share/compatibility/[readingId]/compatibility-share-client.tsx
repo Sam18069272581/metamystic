@@ -7,18 +7,26 @@ import { HeartHandshake, Sparkles } from "lucide-react";
 import { ShareButton } from "@/components/share/share-button";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
+import { buildCompatibilityShareView } from "./compatibility-share-view";
 
 export function CompatibilityShareClient({ readingId }: { readingId: string }) {
   const [reading, setReading] = useState<PublicCompatibilityShareDto | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const view = buildCompatibilityShareView({ reading, error });
+
+  async function loadReading(): Promise<void> {
+    setError(undefined);
+    try {
+      const nextReading = await apiClient.getPublicCompatibilityShare(readingId);
+      setReading(nextReading);
+    } catch (unknownError: unknown) {
+      setReading(undefined);
+      setError(unknownError instanceof Error ? unknownError.message : "合盘分享读取失败");
+    }
+  }
 
   useEffect(() => {
-    void apiClient
-      .getPublicCompatibilityShare(readingId)
-      .then(setReading)
-      .catch((unknownError: unknown) =>
-        setError(unknownError instanceof Error ? unknownError.message : "合盘分享读取失败")
-      );
+    void loadReading();
   }, [readingId]);
 
   return (
@@ -30,21 +38,21 @@ export function CompatibilityShareClient({ readingId }: { readingId: string }) {
               <HeartHandshake className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-white/45">{"MetaMystic 合盘分享"}</p>
+              <p className="text-xs text-white/45">MetaMystic 合盘分享</p>
               <h1 className="gold-text mt-1 truncate text-xl font-semibold">
                 {reading ? `${reading.profiles.a.label} × ${reading.profiles.b.label}` : "八字合盘"}
               </h1>
             </div>
           </div>
           <p className="mt-4 text-sm leading-6 text-white/58">
-            {"这是一份只读合盘结果，仅展示关系结构、互补点与沟通建议，不包含邮箱、出生时间或私密资料。"}
+            这是一个只读分享页，只展示关系结构、互补点与沟通建议，不包含出生时间、邮箱或内部档案标识。
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <Link
               href="/me"
               className="rounded-2xl bg-[#6d4bd0] px-4 py-3 text-center text-sm font-semibold text-white shadow-glow transition hover:bg-[#7b58df]"
             >
-              {"生成我的合盘"}
+              生成我的合盘
             </Link>
             <ShareButton
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/15"
@@ -53,12 +61,38 @@ export function CompatibilityShareClient({ readingId }: { readingId: string }) {
               title={reading ? `${reading.profiles.a.label} × ${reading.profiles.b.label} 的八字合盘` : "八字合盘分享"}
             />
           </div>
-          {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
+          <p className={`mt-3 text-sm ${view.kind === "error" ? "text-rose-300" : "text-white/42"}`}>{view.message}</p>
         </section>
 
-        {reading ? <ShareReadingCard reading={reading} /> : <div className="h-72 animate-pulse rounded-3xl border border-white/10 bg-white/5" />}
+        {reading ? <ShareReadingCard reading={reading} /> : null}
+        {view.kind === "loading" ? <div className="h-72 animate-pulse rounded-3xl border border-white/10 bg-white/5" /> : null}
+        {view.kind === "error" ? <ShareErrorCard onRetry={() => void loadReading()} /> : null}
       </div>
     </MobileShell>
+  );
+}
+
+function ShareErrorCard({ onRetry }: { onRetry: () => void }) {
+  return (
+    <section className="mystic-card rounded-3xl p-5">
+      <p className="text-sm font-semibold text-white/82">分享页暂时不可用</p>
+      <p className="mt-2 text-sm leading-6 text-white/58">你可以稍后重试，或者回到 MetaMystic 重新生成一份新的合盘结果。</p>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          className="rounded-2xl border border-amber-200/20 bg-amber-200/10 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/15"
+          onClick={onRetry}
+          type="button"
+        >
+          重试读取
+        </button>
+        <Link
+          href="/me"
+          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-semibold text-white/82 transition hover:border-amber-200/30"
+        >
+          返回我的资料
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -69,7 +103,7 @@ function ShareReadingCard({ reading }: { reading: PublicCompatibilityShareDto })
         <div>
           <p className="text-xs text-white/42">{levelText(reading.level)}</p>
           <p className="gold-text mt-1 text-4xl font-semibold">{reading.overallScore}</p>
-          <p className="mt-1 text-xs text-white/40">{"综合缘分分"}</p>
+          <p className="mt-1 text-xs text-white/40">综合缘分分</p>
         </div>
         <Sparkles className="h-5 w-5 text-amber-100/70" />
       </div>

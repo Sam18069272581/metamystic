@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { getSiteUrl } from "@/lib/public-url";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://metamystic.vercel.app"),
+  metadataBase: new URL(getSiteUrl(process.env)),
   title: "MetaMystic",
   description: "AI 命理决策辅助平台"
 };

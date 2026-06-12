@@ -8,17 +8,18 @@ This project is deployed as two services:
 
 ## Frontend on Vercel
 
-Use the repository root as the Vercel project root. The root `vercel.json` builds only the frontend workspace.
+Use the repository root as the Vercel project root. The root `vercel.json` builds only the frontend workspace with `corepack pnpm --filter @metamystic/frontend build`.
 
-The root `package.json` intentionally keeps `next`, `react`, and `react-dom` as deploy-time dependencies because this Vercel project currently uses the repository root as its project root. Without those dependencies at the root, Vercel cannot detect the Next.js version. The frontend package still owns the actual application dependencies in `apps/frontend/package.json`.
+The monorepo root only owns workspace orchestration and shared dev tooling. Next.js runtime dependencies (`next`, `react`, `react-dom`) belong to `apps/frontend/package.json`, so backend-oriented installs and Railway builds do not pull frontend dependencies from the root importer.
 
 Required frontend environment variables:
 
 ```ini
 NEXT_PUBLIC_API_BASE_URL="https://<backend-domain>/api/v1"
+NEXT_PUBLIC_APP_URL="https://<frontend-domain>"
 ```
 
-After the backend has a public URL, update this value in Vercel and redeploy the frontend.
+After the backend has a public URL, update these values in Vercel and redeploy the frontend. `NEXT_PUBLIC_APP_URL` should match the public frontend origin exactly so metadata and share links resolve to the correct domain.
 
 ## Backend on Railway
 
@@ -43,6 +44,8 @@ GOOGLE_CALLBACK_URL="https://<backend-domain>/api/v1/auth/google/callback"
 FRONTEND_APP_URL="https://<frontend-domain>"
 CORS_ORIGINS="https://<frontend-domain>"
 ```
+
+Keep `FRONTEND_APP_URL` and `CORS_ORIGINS` entries as plain origins when possible. The backend now normalizes accidental path suffixes, but clean origin-only values are still preferred for deployment review and debugging.
 
 For DeepSeek-compatible chat generation, keep the embedding variables above and switch the consultation provider:
 

@@ -18,4 +18,15 @@ describe("buildCorsOrigins", () => {
     expect(origins).toContain("https://preview.metamystic.app");
     expect(origins).toContain("https://admin.metamystic.app");
   });
+
+  it("normalizes configured origins down to scheme + host", () => {
+    const origins = buildCorsOrigins({
+      FRONTEND_APP_URL: "https://metamystic.app/app/",
+      CORS_ORIGINS: "https://preview.metamystic.app/share/compatibility, invalid-origin"
+    });
+
+    expect(origins).toContain("https://metamystic.app");
+    expect(origins).toContain("https://preview.metamystic.app");
+    expect(origins).not.toContain("https://metamystic.app/app");
+  });
 });

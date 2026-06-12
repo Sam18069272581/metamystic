@@ -169,6 +169,12 @@ describe("CompatibilityService", () => {
     expect(prisma.compatibilityReading.findUnique).toHaveBeenCalledWith({ where: { id: "compat-1" } });
     expect(result.id).toBe("compat-1");
     expect(result.profiles.a.label).toBe("self");
+    expect(result.profiles.a).not.toHaveProperty("id");
+    expect(result.profiles.b).not.toHaveProperty("id");
+    expect(result.charts.a).not.toHaveProperty("id");
+    expect(result.charts.a).not.toHaveProperty("profileId");
+    expect(result.charts.b).not.toHaveProperty("id");
+    expect(result.charts.b).not.toHaveProperty("profileId");
   });
 
   it("rejects profiles that do not belong to the current user", async () => {

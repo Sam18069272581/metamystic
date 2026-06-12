@@ -163,7 +163,7 @@ export class CompatibilityService {
     if (!reading) {
       throw new NotFoundException("Compatibility reading not found");
     }
-    return toCompatibilityReadingDto(reading);
+    return toPublicCompatibilityShareDto(reading);
   }
 
   private async loadOwnedProfiles(
@@ -393,6 +393,31 @@ function attachStoredFields(
 function toCompatibilityReadingDto(stored: StoredCompatibilityReading): CompatibilityReadingDto {
   const reading = stored.reading as Omit<CompatibilityReadingDto, "id" | "createdAt">;
   return attachStoredFields(stored, reading);
+}
+
+function toPublicCompatibilityShareDto(stored: StoredCompatibilityReading): PublicCompatibilityShareDto {
+  const reading = toCompatibilityReadingDto(stored);
+  return {
+    ...reading,
+    profiles: {
+      a: { label: reading.profiles.a.label },
+      b: { label: reading.profiles.b.label }
+    },
+    charts: {
+      a: {
+        dayMaster: reading.charts.a.dayMaster,
+        dayMasterStatus: reading.charts.a.dayMasterStatus,
+        mainPattern: reading.charts.a.mainPattern,
+        usefulGods: reading.charts.a.usefulGods
+      },
+      b: {
+        dayMaster: reading.charts.b.dayMaster,
+        dayMasterStatus: reading.charts.b.dayMasterStatus,
+        mainPattern: reading.charts.b.mainPattern,
+        usefulGods: reading.charts.b.usefulGods
+      }
+    }
+  };
 }
 
 function clampScore(score: number): number {

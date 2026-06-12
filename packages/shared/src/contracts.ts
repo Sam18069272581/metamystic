@@ -221,7 +221,16 @@ export interface CompatibilityReadingListResponse {
   readings: CompatibilityReadingDto[];
 }
 
-export type PublicCompatibilityShareDto = CompatibilityReadingDto;
+export interface PublicCompatibilityShareDto extends Omit<CompatibilityReadingDto, "profiles" | "charts"> {
+  profiles: {
+    a: { label: string };
+    b: { label: string };
+  };
+  charts: {
+    a: Pick<BaziChartDto, "dayMaster" | "dayMasterStatus" | "mainPattern" | "usefulGods">;
+    b: Pick<BaziChartDto, "dayMaster" | "dayMasterStatus" | "mainPattern" | "usefulGods">;
+  };
+}
 
 export type ZiweiPalaceName =
   | "life"

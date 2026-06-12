@@ -50,9 +50,34 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
         : "\u7f51\u7edc\u8bf7\u6c42\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
     );
   }
-  const payload = (await response.json()) as ApiResponse<T>;
-  if (payload.status === "error") {
+
+  const status = "ok" in response ? response.ok : true;
+  const contentType = response.headers?.get?.("content-type") ?? "";
+  const hasJsonBody = contentType.includes("application/json") || (!!response.json && contentType.length === 0);
+  let payload: ApiResponse<T> | undefined;
+
+  if (hasJsonBody) {
+    try {
+      payload = (await response.json()) as ApiResponse<T>;
+    } catch {
+      throw new Error("\u65e0\u6cd5\u89e3\u6790\u540e\u7aef\u54cd\u5e94\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002");
+    }
+  }
+
+  if (payload?.status === "error") {
     throw new Error(payload.error.message);
+  }
+
+  if (!status) {
+    const statusCode = "status" in response ? response.status : 500;
+    throw new Error(`\u540e\u7aef\u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff08HTTP ${statusCode}\uff09\u3002\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002`);
+  }
+
+  if (!payload || payload.status !== "success") {
+    if ("status" in response && response.status === 204) {
+      return undefined as T;
+    }
+    throw new Error("\u65e0\u6cd5\u89e3\u6790\u540e\u7aef\u54cd\u5e94\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002");
   }
   return payload.data;
 }

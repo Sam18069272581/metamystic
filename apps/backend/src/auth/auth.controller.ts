@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Query, Req, Res, UseGuards } from "@nestjs
 import type { Request, Response } from "express";
 import type { ApiResponse, AuthSessionDto, AuthUserDto } from "@metamystic/shared";
 import { ok } from "../shared/api-response";
+import { getFrontendAppUrl } from "../config/public-app-url";
 import { AuthService } from "./auth.service";
 import { clearAuthCookies, readCookie, setAuthCookies } from "./auth-cookies";
 import { CurrentUser } from "./decorators/current-user.decorator";
@@ -64,6 +65,6 @@ export class AuthController {
     const profile = await this.googleOAuth.exchangeCode(code);
     const session = await this.authService.loginWithGoogle(profile);
     setAuthCookies(response, session);
-    response.redirect(`${process.env.FRONTEND_APP_URL ?? "http://localhost:3000"}/me`);
+    response.redirect(`${getFrontendAppUrl(process.env)}/me`);
   }
 }

@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { LogIn, Mail, Sparkles } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
+import { buildGoogleAuthUrl, getApiBaseUrl } from "@/lib/public-url";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
+  const googleAuthUrl = buildGoogleAuthUrl(getApiBaseUrl(process.env));
   const [email, setEmail] = useState("user@example.com");
   const [password, setPassword] = useState("Correct Horse Battery Staple 42!");
   const [displayName, setDisplayName] = useState("\u5c0f\u7384\u540c\u5b66");
@@ -75,7 +77,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         {loading ? "\u5904\u7406\u4e2d..." : mode === "register" ? "\u6ce8\u518c\u5e76\u767b\u5f55" : "\u767b\u5f55"}
       </button>
       <a
-        href="http://localhost:4000/api/v1/auth/google"
+        href={googleAuthUrl}
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/72 transition hover:border-amber-200/30"
       >
         <Mail className="h-4 w-4" />

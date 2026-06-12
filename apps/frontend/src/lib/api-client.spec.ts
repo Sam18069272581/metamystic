@@ -26,6 +26,18 @@ const compatibilityReading = {
   createdAt: "2026-06-05T00:00:00.000Z"
 };
 
+const publicCompatibilityShare = {
+  ...compatibilityReading,
+  profiles: {
+    a: { label: "自己" },
+    b: { label: "伴侣" }
+  },
+  charts: {
+    a: { dayMaster: "乙", dayMasterStatus: "weak", mainPattern: "杀印相生" },
+    b: { dayMaster: "壬", dayMasterStatus: "strong", mainPattern: "食神生财" }
+  }
+};
+
 function mockSuccess<T>(data: T): void {
   vi.stubGlobal(
     "fetch",
@@ -269,11 +281,14 @@ describe("apiClient", () => {
   });
 
   it("fetches one public compatibility share reading", async () => {
-    mockSuccess(compatibilityReading);
+    mockSuccess(publicCompatibilityShare);
 
     const reading = await apiClient.getPublicCompatibilityShare("compat-1");
 
     expect(reading.id).toBe("compat-1");
+    expect(reading.profiles.a).not.toHaveProperty("id");
+    expect(reading.charts.a).not.toHaveProperty("id");
+    expect(reading.charts.a).not.toHaveProperty("profileId");
     expect(fetch).toHaveBeenCalledWith(
       "http://localhost:4000/api/v1/compatibility/compat-1/share",
       expect.objectContaining({ method: "GET", credentials: "include" })
@@ -301,5 +316,34 @@ describe("apiClient", () => {
       "http://localhost:4000/api/v1/users/me/consultations/consult-1",
       expect.objectContaining({ method: "GET", credentials: "include" })
     );
+  });
+
+  it("surfaces a readable HTTP status when the backend returns a non-JSON error page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        headers: { get: () => "text/html" }
+      })
+    );
+
+    await expect(apiClient.getPublicCompatibilityShare("compat-1")).rejects.toThrow("HTTP 502");
+  });
+
+  it("fails with a readable message when a success response body is not valid JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: { get: () => "application/json" },
+        json: async () => {
+          throw new SyntaxError("Unexpected token <");
+        }
+      })
+    );
+
+    await expect(apiClient.listMyCompatibilityReadings()).rejects.toThrow("无法解析后端响应");
   });
 });
