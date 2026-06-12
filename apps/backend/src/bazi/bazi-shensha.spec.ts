@@ -56,4 +56,50 @@ describe("calculateBaziShensha", () => {
     expect(result.month).toContain("空亡");
     expect(result.day).not.toContain("空亡");
   });
+
+  it("calculates exact stem-pillar scholar stars and ordered san-qi nobleman", () => {
+    const result = calculateBaziShensha(
+      pillars({
+        year: { stem: "甲", branch: "子", tenGod: "偏财", hiddenStems: [] },
+        month: { stem: "戊", branch: "辰", tenGod: "偏印", hiddenStems: [] },
+        day: { stem: "庚", branch: "寅", tenGod: "日主", hiddenStems: [] },
+        hour: { stem: "己", branch: "亥", tenGod: "正印", hiddenStems: [] }
+      }),
+      "庚"
+    );
+
+    expect(result.month).toContain("三奇贵人");
+    expect(result.day).toEqual(expect.arrayContaining(["词馆", "三奇贵人"]));
+    expect(result.hour).toContain("学堂");
+  });
+
+  it("calculates year/day branch relationship shensha", () => {
+    const result = calculateBaziShensha(
+      pillars({
+        year: { stem: "甲", branch: "子", tenGod: "偏财", hiddenStems: [] },
+        month: { stem: "丁", branch: "卯", tenGod: "正官", hiddenStems: [] },
+        day: { stem: "庚", branch: "辰", tenGod: "日主", hiddenStems: [] },
+        hour: { stem: "辛", branch: "巳", tenGod: "劫财", hiddenStems: [] }
+      }),
+      "庚"
+    );
+
+    expect(result.month).toContain("勾绞煞");
+    expect(result.hour).toContain("地网");
+  });
+
+  it("calculates additional special day and hour pillar shensha", () => {
+    const result = calculateBaziShensha(
+      pillars({
+        year: { stem: "甲", branch: "子", tenGod: "偏财", hiddenStems: [] },
+        month: { stem: "丙", branch: "申", tenGod: "正官", hiddenStems: [] },
+        day: { stem: "辛", branch: "酉", tenGod: "日主", hiddenStems: [] },
+        hour: { stem: "癸", branch: "酉", tenGod: "食神", hiddenStems: [] }
+      }),
+      "辛"
+    );
+
+    expect(result.day).toEqual(expect.arrayContaining(["天转", "八专", "九丑"]));
+    expect(result.hour).toContain("金神");
+  });
 });

@@ -13,6 +13,11 @@ type StemBranchRule = {
   source: "dayStem" | "yearAndDayStem";
 };
 
+type ExactStemPillarRule = {
+  label: string;
+  targetsByStem: Record<string, readonly string[]>;
+};
+
 type TrineRule = {
   branches: readonly string[];
   jiangXing: string;
@@ -187,6 +192,45 @@ const stemBranchRules: StemBranchRule[] = [
   }
 ];
 
+const exactStemPillarRules: ExactStemPillarRule[] = [
+  {
+    label: "学堂",
+    targetsByStem: {
+      甲: ["己亥"],
+      乙: ["壬午"],
+      丙: ["丙寅"],
+      丁: ["丁酉"],
+      戊: ["戊寅"],
+      己: ["己酉"],
+      庚: ["辛巳"],
+      辛: ["甲子"],
+      壬: ["甲申"],
+      癸: ["乙卯"]
+    }
+  },
+  {
+    label: "词馆",
+    targetsByStem: {
+      甲: ["庚寅"],
+      乙: ["辛卯"],
+      丙: ["乙巳"],
+      丁: ["戊午"],
+      戊: ["丁巳"],
+      己: ["庚午"],
+      庚: ["壬申"],
+      辛: ["癸酉"],
+      壬: ["癸亥"],
+      癸: ["壬戌"]
+    }
+  }
+];
+
+const sanQiStemSequences = [
+  ["乙", "丙", "丁"],
+  ["甲", "戊", "庚"],
+  ["壬", "癸", "辛"]
+] as const;
+
 const trineRules: TrineRule[] = [
   { branches: ["寅", "午", "戌"], jiangXing: "午", yiMa: "申", huaGai: "戌", taoHua: "卯", wangShen: "巳", jieSha: "亥", zaiSha: "子" },
   { branches: ["申", "子", "辰"], jiangXing: "子", yiMa: "寅", huaGai: "辰", taoHua: "酉", wangShen: "亥", jieSha: "巳", zaiSha: "午" },
@@ -302,18 +346,44 @@ const dayPillarRules: Array<{ label: string; pillars: readonly string[] }> = [
   { label: "阴阳差错", pillars: ["丙子", "丙午", "丁丑", "丁未", "戊寅", "戊申", "辛卯", "辛酉", "壬辰", "壬戌", "癸巳", "癸亥"] },
   { label: "魁罡", pillars: ["戊戌", "庚辰", "庚戌", "壬辰"] },
   { label: "十恶大败", pillars: ["甲辰", "乙巳", "丙申", "丁亥", "戊戌", "己丑", "庚辰", "辛巳", "壬申", "癸亥"] },
-  { label: "孤鸾煞", pillars: ["乙巳", "丁巳", "辛亥", "戊申", "壬寅", "戊午", "壬子", "丙午"] },
+  { label: "孤鸾煞", pillars: ["甲寅", "乙巳", "丙午", "丁巳", "戊午", "戊申", "辛亥", "壬子"] },
   { label: "十灵日", pillars: ["甲辰", "乙亥", "丙辰", "丁酉", "戊午", "庚戌", "庚寅", "辛亥", "壬寅", "癸未"] },
-  { label: "六秀日", pillars: ["丙午", "丁未", "戊子", "戊午", "己丑", "己未"] }
+  { label: "六秀日", pillars: ["丙午", "丁未", "戊子", "戊午", "己丑", "己未"] },
+  { label: "八专", pillars: ["甲寅", "乙卯", "丁未", "戊戌", "己未", "庚申", "辛酉", "癸丑"] },
+  { label: "九丑", pillars: ["丁酉", "戊子", "戊午", "己卯", "己酉", "辛卯", "辛酉", "壬子", "壬午"] }
+];
+
+const dayOrHourPillarRules: Array<{ label: string; pillars: readonly string[] }> = [
+  { label: "金神", pillars: ["乙丑", "己巳", "癸酉"] }
+];
+
+const seasonalDayPillarRules: Array<{
+  label: string;
+  monthBranches: readonly string[];
+  dayPillar: string;
+}> = [
+  { label: "天转", monthBranches: ["寅", "卯", "辰"], dayPillar: "乙卯" },
+  { label: "天转", monthBranches: ["巳", "午", "未"], dayPillar: "丙午" },
+  { label: "天转", monthBranches: ["申", "酉", "戌"], dayPillar: "辛酉" },
+  { label: "天转", monthBranches: ["亥", "子", "丑"], dayPillar: "壬子" },
+  { label: "地转", monthBranches: ["寅", "卯", "辰"], dayPillar: "辛卯" },
+  { label: "地转", monthBranches: ["巳", "午", "未"], dayPillar: "戊午" },
+  { label: "地转", monthBranches: ["申", "酉", "戌"], dayPillar: "癸酉" },
+  { label: "地转", monthBranches: ["亥", "子", "丑"], dayPillar: "丙子" }
 ];
 
 export function calculateBaziShensha(pillars: BaziChartDto["pillars"], dayMaster: string): ShenshaMap {
   const result = createEmptyResult();
   applyStemBranchRules(result, pillars, dayMaster);
+  applyExactStemPillarRules(result, pillars, dayMaster);
+  applySanQiRules(result, pillars);
   applyMonthBranchRules(result, pillars);
   applyTrineRules(result, pillars);
   applyYearBranchRules(result, pillars);
+  applyYearDayBranchRelationshipRules(result, pillars);
   applyDayPillarRules(result, pillars);
+  applyDayOrHourPillarRules(result, pillars);
+  applySeasonalDayPillarRules(result, pillars);
   applyKongWang(result, pillars);
   return result;
 }
@@ -329,6 +399,31 @@ function applyStemBranchRules(result: ShenshaMap, pillars: BaziChartDto["pillars
     for (const name of pillarOrder) {
       if (targets.has(pillars[name].branch)) {
         add(result, name, rule.label);
+      }
+    }
+  }
+}
+
+function applyExactStemPillarRules(result: ShenshaMap, pillars: BaziChartDto["pillars"], dayMaster: string): void {
+  for (const rule of exactStemPillarRules) {
+    const sourceStems = [pillars.year.stem, dayMaster];
+    const targets = new Set(sourceStems.flatMap((stem) => rule.targetsByStem[stem] ?? []));
+    for (const name of pillarOrder) {
+      const pillar = pillars[name];
+      if (targets.has(`${pillar.stem}${pillar.branch}`)) {
+        add(result, name, rule.label);
+      }
+    }
+  }
+}
+
+function applySanQiRules(result: ShenshaMap, pillars: BaziChartDto["pillars"]): void {
+  const pillarStems = pillarOrder.map((name) => pillars[name].stem);
+  for (let start = 0; start <= pillarOrder.length - 3; start += 1) {
+    const window = pillarStems.slice(start, start + 3);
+    if (sanQiStemSequences.some((sequence) => sequence.every((stem, index) => stem === window[index]))) {
+      for (const name of pillarOrder.slice(start, start + 3)) {
+        add(result, name, "三奇贵人");
       }
     }
   }
@@ -400,10 +495,59 @@ function applyYearBranchRules(result: ShenshaMap, pillars: BaziChartDto["pillars
   }
 }
 
+function applyYearDayBranchRelationshipRules(result: ShenshaMap, pillars: BaziChartDto["pillars"]): void {
+  const gouJiaoBranches = new Set([
+    branchOffset(pillars.year.branch, 3),
+    branchOffset(pillars.year.branch, -3)
+  ].filter((branch): branch is string => Boolean(branch)));
+
+  for (const name of ["month", "day", "hour"] as const) {
+    if (gouJiaoBranches.has(pillars[name].branch)) {
+      add(result, name, "勾绞煞");
+    }
+  }
+
+  for (const sourceName of ["year", "day"] as const) {
+    const sourceBranch = pillars[sourceName].branch;
+    for (const name of pillarOrder) {
+      if (name === sourceName) {
+        continue;
+      }
+      const targetBranch = pillars[name].branch;
+      if ((sourceBranch === "戌" && targetBranch === "亥") || (sourceBranch === "亥" && targetBranch === "戌")) {
+        add(result, name, "天罗");
+      }
+      if ((sourceBranch === "辰" && targetBranch === "巳") || (sourceBranch === "巳" && targetBranch === "辰")) {
+        add(result, name, "地网");
+      }
+    }
+  }
+}
+
 function applyDayPillarRules(result: ShenshaMap, pillars: BaziChartDto["pillars"]): void {
   const dayPillar = `${pillars.day.stem}${pillars.day.branch}`;
   for (const rule of dayPillarRules) {
     if (rule.pillars.includes(dayPillar)) {
+      add(result, "day", rule.label);
+    }
+  }
+}
+
+function applyDayOrHourPillarRules(result: ShenshaMap, pillars: BaziChartDto["pillars"]): void {
+  for (const rule of dayOrHourPillarRules) {
+    for (const name of ["day", "hour"] as const) {
+      const pillar = pillars[name];
+      if (rule.pillars.includes(`${pillar.stem}${pillar.branch}`)) {
+        add(result, name, rule.label);
+      }
+    }
+  }
+}
+
+function applySeasonalDayPillarRules(result: ShenshaMap, pillars: BaziChartDto["pillars"]): void {
+  const dayPillar = `${pillars.day.stem}${pillars.day.branch}`;
+  for (const rule of seasonalDayPillarRules) {
+    if (rule.dayPillar === dayPillar && rule.monthBranches.includes(pillars.month.branch)) {
       add(result, "day", rule.label);
     }
   }
@@ -427,6 +571,14 @@ function findTrineRule(branch: string): TrineRule | undefined {
 
 function uniqueRules(rules: Array<TrineRule | undefined>): TrineRule[] {
   return Array.from(new Set(rules.filter((rule): rule is TrineRule => Boolean(rule))));
+}
+
+function branchOffset(branch: string, offset: number): string | undefined {
+  const branchIndex = branches.indexOf(branch as (typeof branches)[number]);
+  if (branchIndex < 0) {
+    return undefined;
+  }
+  return branches[(branchIndex + offset + branches.length) % branches.length];
 }
 
 function getKongWangBranches(stem: string, branch: string): string[] {
