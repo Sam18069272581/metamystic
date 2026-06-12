@@ -27,6 +27,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @metamystic/backend prisma:generate
 
+      - name: Verify repository config
+        run: pnpm verify:repo-config
+
       - name: Typecheck
         run: pnpm typecheck
 

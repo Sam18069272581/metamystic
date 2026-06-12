@@ -10,11 +10,11 @@
     "build": "corepack pnpm -r build",
     "typecheck": "corepack pnpm -r typecheck",
     "lint": "corepack pnpm -r lint",
+    "verify:repo-config": "node scripts/verify-repo-config.mjs",
     "smoke:prod": "node scripts/smoke-prod.mjs",
     "test": "corepack pnpm -r test"
   },
   "devDependencies": {
-    "next": "15.5.18",
     "typescript": "^5.7.2"
   }
 }
