@@ -14,6 +14,7 @@ import type {
   CreateCompatibilityRequest,
   CreateConsultationRequest,
   CreateUserProfileRequest,
+  DailyFortuneDto,
   ProfileDto,
   ProfileMemorySignalsDto,
   PublicCompatibilityShareDto,
@@ -211,6 +212,12 @@ export const apiClient = {
 
   listMyCharts(): Promise<UserChartArchiveDto> {
     return request<UserChartArchiveDto>("/users/me/charts", {
+      method: "GET"
+    });
+  },
+
+  getTodayDailyFortune(): Promise<DailyFortuneDto> {
+    return request<DailyFortuneDto>("/users/me/daily-fortune/today", {
       method: "GET"
     });
   },

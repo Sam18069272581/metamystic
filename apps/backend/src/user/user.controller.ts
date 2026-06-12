@@ -6,6 +6,7 @@ import type {
   BaziChartDto,
   ConsultationDto,
   ConsultationHistoryDto,
+  DailyFortuneDto,
   ProfileDto,
   UserChartArchiveDto,
   UserChartDetailDto,
@@ -22,6 +23,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ProfileService } from "../profile/profile.service";
 import { ok } from "../shared/api-response";
 import { ZiweiService } from "../ziwei/ziwei.service";
+import { DailyFortuneService } from "./daily-fortune.service";
 import { UserChartService } from "./user-chart.service";
 import { CreateUserProfileDto, UpsertUserProfileDto } from "./upsert-user-profile.dto";
 
@@ -34,12 +36,18 @@ export class UserController {
     private readonly consultationService: ConsultationService,
     private readonly ziweiService: ZiweiService,
     private readonly astrologyService: AstrologyService,
-    private readonly userChartService: UserChartService
+    private readonly userChartService: UserChartService,
+    private readonly dailyFortuneService: DailyFortuneService
   ) {}
 
   @Get("charts")
   async listCharts(@CurrentUser() user: AuthUserDto): Promise<ApiResponse<UserChartArchiveDto>> {
     return ok(await this.userChartService.listMyCharts(user.id));
+  }
+
+  @Get("daily-fortune/today")
+  async getTodayFortune(@CurrentUser() user: AuthUserDto): Promise<ApiResponse<DailyFortuneDto>> {
+    return ok(await this.dailyFortuneService.getToday(user.id));
   }
 
   @Get("charts/:kind/:chartId")

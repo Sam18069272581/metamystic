@@ -332,6 +332,29 @@ export interface UserChartDetailDto {
   chart: BaziChartDto | ZiweiChartDto | AstrologyChartDto;
 }
 
+export interface DailyFortuneDto {
+  date: string;
+  status: "ready" | "needs_profile" | "needs_bazi_chart";
+  profile?: {
+    id: string;
+    label: string;
+  } | undefined;
+  score: number;
+  element: FiveElement;
+  title: string;
+  summary: string;
+  advice: string[];
+  cautions: string[];
+  luckyActions: string[];
+  source?: {
+    chartId: string;
+    dayMaster: string;
+    dayMasterStatus: BaziChartDto["dayMasterStatus"];
+    mainPattern: string;
+    usefulGods: FiveElement[];
+  } | undefined;
+}
+
 export interface CreateConsultationRequest {
   profileId: string;
   chartId: string;

@@ -38,6 +38,26 @@ const publicCompatibilityShare = {
   }
 };
 
+const dailyFortune = {
+  date: "2026-06-12",
+  status: "ready",
+  profile: { id: "profile-1", label: "自己" },
+  score: 82,
+  element: "water",
+  title: "水气得用，适合顺势推进",
+  summary: "今日水气被激活。",
+  advice: ["收集信息再决策"],
+  cautions: ["避免情绪高点做最终决定"],
+  luckyActions: ["适合学习、研究和深谈"],
+  source: {
+    chartId: "bazi-1",
+    dayMaster: "乙",
+    dayMasterStatus: "weak",
+    mainPattern: "杀印相生",
+    usefulGods: ["water"]
+  }
+};
+
 function mockSuccess<T>(data: T): void {
   vi.stubGlobal(
     "fetch",
@@ -213,6 +233,19 @@ describe("apiClient", () => {
     expect(archive.baziCharts).toEqual([]);
     expect(fetch).toHaveBeenCalledWith(
       "http://localhost:4000/api/v1/users/me/charts",
+      expect.objectContaining({ method: "GET", credentials: "include" })
+    );
+  });
+
+  it("fetches today's daily fortune for the current user", async () => {
+    mockSuccess(dailyFortune);
+
+    const fortune = await apiClient.getTodayDailyFortune();
+
+    expect(fortune.score).toBe(82);
+    expect(fortune.status).toBe("ready");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/daily-fortune/today",
       expect.objectContaining({ method: "GET", credentials: "include" })
     );
   });
