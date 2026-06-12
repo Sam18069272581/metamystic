@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { BaziChartDto, BaziPillarDto, FiveElement } from "@metamystic/shared";
+import type { BaziChartDto, FiveElement } from "@metamystic/shared";
+import { getOrderedBaziPillars, getPillarShensha } from "./bazi-chart-view";
 
 const elementLabels: Record<FiveElement, string> = {
   wood: "\u6728",
@@ -28,7 +29,7 @@ const pillarLabels: Record<keyof BaziChartDto["pillars"], string> = {
 
 export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
   const [mode, setMode] = useState<"overview" | "professional">("professional");
-  const pillars = Object.entries(chart.pillars) as Array<[keyof BaziChartDto["pillars"], BaziPillarDto]>;
+  const pillars = getOrderedBaziPillars(chart);
 
   return (
     <section className="mystic-card rounded-3xl p-4">
@@ -65,7 +66,19 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
               <p className="text-[11px] text-white/40">{pillar.tenGod}</p>
               <p className="mt-2 text-2xl font-semibold text-emerald-300">{pillar.stem}</p>
               <p className="mt-1 text-2xl font-semibold text-rose-300">{pillar.branch}</p>
-              <p className="mt-2 text-[11px] text-white/42">{pillar.nayin}</p>
+              <div className="mt-2 flex min-h-12 flex-wrap justify-center gap-1">
+                {getPillarShensha(pillar).length > 0 ? (
+                  getPillarShensha(pillar)
+                    .slice(0, 3)
+                    .map((item) => (
+                      <span key={`${name}-${item}`} className="rounded-full bg-amber-200/10 px-1.5 py-0.5 text-[10px] text-amber-100/75">
+                        {item}
+                      </span>
+                    ))
+                ) : (
+                  <span className="self-start text-[10px] text-white/28">{"\u672a\u89c1\u4e3b\u795e\u715e"}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

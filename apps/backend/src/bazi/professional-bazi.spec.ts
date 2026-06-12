@@ -57,5 +57,9 @@ describe("enrichProfessionalBaziChart", () => {
       })
     );
     expect(chart.analysis?.riskFlags).toContain("\u5b98\u6740\u538b\u529b\u504f\u91cd");
+    expect(chart.pillars.month.shensha).toEqual(expect.arrayContaining(["\u9a7f\u9a6c", "\u5929\u5fb7\u8d35\u4eba"]));
+    expect(chart.pillars.day.shensha).toContain("\u5c06\u661f");
+    expect(chart.pillars.hour.shensha).toEqual(expect.arrayContaining(["\u9a7f\u9a6c", "\u5929\u5fb7\u8d35\u4eba"]));
+    expect(chart.pillars.year.nayin).toBeUndefined();
   });
 });

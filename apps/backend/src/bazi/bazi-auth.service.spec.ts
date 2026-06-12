@@ -140,6 +140,38 @@ describe("BaziService public share chart", () => {
     expect(chart.analysis?.strengthLabel).toBe("身弱");
   });
 
+  it("normalizes legacy public charts by replacing nayin with shensha even when analysis already exists", async () => {
+    const legacyChart = {
+      id: "bazi-legacy",
+      profileId: "profile-1",
+      dayMaster: "乙",
+      dayMasterStatus: "weak",
+      mainPattern: "杀印相生",
+      pillars: {
+        year: { stem: "乙", branch: "亥", tenGod: "比肩", hiddenStems: ["壬", "甲"], nayin: "山头火" },
+        month: { stem: "辛", branch: "巳", tenGod: "七杀", hiddenStems: ["丙", "戊", "庚"], nayin: "白蜡金" },
+        day: { stem: "乙", branch: "卯", tenGod: "日主", hiddenStems: ["乙"], nayin: "大溪水" },
+        hour: { stem: "辛", branch: "巳", tenGod: "七杀", hiddenStems: ["丙", "戊", "庚"], nayin: "白蜡金" }
+      },
+      elements: { wood: 0.2, fire: 0.24, earth: 0.18, metal: 0.28, water: 0.1 },
+      metadata: { usefulGods: ["water", "wood"], analysis: { strengthLabel: "身弱" } },
+      createdAt: new Date("2026-06-02T08:00:00.000Z")
+    };
+    const prisma = {
+      baziChart: {
+        findUnique: vi.fn().mockResolvedValue(legacyChart)
+      }
+    };
+    const service = new BaziService(prisma as never, {} as never);
+
+    const chart = await service.getPublicShareChart("bazi-legacy");
+
+    expect(chart.pillars.year.nayin).toBeUndefined();
+    expect(chart.pillars.month.shensha).toEqual(expect.arrayContaining(["驿马", "天德贵人"]));
+    expect(chart.pillars.day.shensha).toContain("将星");
+    expect(chart.analysis?.strengthLabel).toBe("身弱");
+  });
+
   it("rejects sharing a missing Bazi chart", async () => {
     const prisma = {
       baziChart: {

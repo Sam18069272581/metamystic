@@ -57,7 +57,7 @@ export default function BaziChartPage() {
             </div>
             <div>
               <p className="gold-text text-lg font-semibold">{"\u516b\u5b57\u4e13\u4e1a\u6392\u76d8"}</p>
-              <p className="mt-1 text-xs text-white/42">{"\u6309\u5e74\u6708\u65e5\u65f6\u8f93\u5165\uff0c\u751f\u6210\u56db\u67f1\u3001\u85cf\u5e72\u3001\u5341\u795e\u548c\u559c\u7528\u795e"}</p>
+              <p className="mt-1 text-xs text-white/42">{"\u6309\u5e74\u6708\u65e5\u65f6\u8f93\u5165\uff0c\u751f\u6210\u56db\u67f1\u3001\u85cf\u5e72\u3001\u5341\u795e\u3001\u795e\u715e\u548c\u559c\u7528\u795e"}</p>
             </div>
           </div>
 

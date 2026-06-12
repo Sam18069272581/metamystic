@@ -133,14 +133,18 @@ function toBaziChartDto(chart: {
     metadata,
     createdAt: chart.createdAt.toISOString()
   };
-  if (dto.analysis) {
-    return dto;
-  }
   const enriched = enrichProfessionalBaziChart(dto);
   return {
-    ...enriched,
+    ...dto,
+    pillars: enriched.pillars,
     usefulGods: dto.usefulGods ?? enriched.usefulGods,
-    unfavorableGods: dto.unfavorableGods ?? enriched.unfavorableGods
+    unfavorableGods: dto.unfavorableGods ?? enriched.unfavorableGods,
+    analysis: dto.analysis ?? enriched.analysis,
+    metadata: {
+      ...enriched.metadata,
+      ...dto.metadata,
+      analysis: dto.analysis ?? enriched.analysis
+    }
   };
 }
 

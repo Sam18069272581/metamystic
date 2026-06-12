@@ -96,12 +96,13 @@ export interface BaziPillarDto {
   branch: string;
   tenGod: string;
   hiddenStems: string[];
+  shensha?: string[] | undefined;
   hiddenStemDetails?: Array<{
     stem: string;
     tenGod: string;
     element: FiveElement;
   }> | undefined;
-  nayin: string;
+  nayin?: string | undefined;
 }
 
 export interface BaziChartDto {
