@@ -379,4 +379,19 @@ describe("apiClient", () => {
 
     await expect(apiClient.listMyCompatibilityReadings()).rejects.toThrow("无法解析后端响应");
   });
+  it("treats 204 No Content responses as successful empty results", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+        headers: { get: () => "" },
+        json: async () => {
+          throw new SyntaxError("Unexpected end of JSON input");
+        }
+      })
+    );
+
+    await expect(apiClient.logout()).resolves.toBeUndefined();
+  });
 });

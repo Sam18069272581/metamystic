@@ -53,6 +53,10 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   }
 
   const status = "ok" in response ? response.ok : true;
+  if ("status" in response && response.status === 204) {
+    return undefined as T;
+  }
+
   const contentType = response.headers?.get?.("content-type") ?? "";
   const hasJsonBody = contentType.includes("application/json") || (!!response.json && contentType.length === 0);
   let payload: ApiResponse<T> | undefined;
@@ -75,9 +79,6 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   }
 
   if (!payload || payload.status !== "success") {
-    if ("status" in response && response.status === 204) {
-      return undefined as T;
-    }
     throw new Error("\u65e0\u6cd5\u89e3\u6790\u540e\u7aef\u54cd\u5e94\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002");
   }
   return payload.data;
@@ -104,8 +105,8 @@ export const apiClient = {
     });
   },
 
-  logout(): Promise<{ success: true }> {
-    return request<{ success: true }>("/auth/logout", {
+  logout(): Promise<void> {
+    return request<void>("/auth/logout", {
       method: "POST"
     });
   },

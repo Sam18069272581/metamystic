@@ -1,5 +1,6 @@
 import type { BaziChartDto, BaziPillarDto, FiveElement } from "@metamystic/shared";
 import type { CalculatedBaziChart } from "./bazi-engine";
+import { calculateBaziShensha } from "./bazi-shensha";
 
 const stems = ["\u7532", "\u4e59", "\u4e19", "\u4e01", "\u620a", "\u5df1", "\u5e9a", "\u8f9b", "\u58ec", "\u7678"] as const;
 
@@ -89,8 +90,6 @@ const tenGodPriority = [
   "\u6bd4\u80a9"
 ];
 
-const pillarOrder = ["year", "month", "day", "hour"] as const;
-
 const elementLabels: Record<FiveElement, string> = {
   wood: "\u6728",
   fire: "\u706b",
@@ -107,67 +106,6 @@ const seasonalSupportLabels: Record<
   draining: "\u6cc4\u8017",
   controlling: "\u514b\u5236",
   neutral: "\u4e2d\u6027"
-};
-
-const tianYiBranchesByStem: Record<string, string[]> = {
-  "\u7532": ["\u4e11", "\u672a"],
-  "\u620a": ["\u4e11", "\u672a"],
-  "\u5e9a": ["\u4e11", "\u672a"],
-  "\u4e59": ["\u5b50", "\u7533"],
-  "\u5df1": ["\u5b50", "\u7533"],
-  "\u4e19": ["\u4ea5", "\u9149"],
-  "\u4e01": ["\u4ea5", "\u9149"],
-  "\u58ec": ["\u536f", "\u5df3"],
-  "\u7678": ["\u536f", "\u5df3"],
-  "\u8f9b": ["\u5bc5", "\u5348"]
-};
-
-const dayBranchShenshaRules: Array<{
-  branches: readonly string[];
-  jiangXing: string;
-  yiMa: string;
-  huaGai: string;
-  taoHua: string;
-}> = [
-  { branches: ["\u5bc5", "\u5348", "\u620c"], jiangXing: "\u5348", yiMa: "\u7533", huaGai: "\u620c", taoHua: "\u536f" },
-  { branches: ["\u7533", "\u5b50", "\u8fb0"], jiangXing: "\u5b50", yiMa: "\u5bc5", huaGai: "\u8fb0", taoHua: "\u9149" },
-  { branches: ["\u5df3", "\u9149", "\u4e11"], jiangXing: "\u9149", yiMa: "\u4ea5", huaGai: "\u4e11", taoHua: "\u5348" },
-  { branches: ["\u4ea5", "\u536f", "\u672a"], jiangXing: "\u536f", yiMa: "\u5df3", huaGai: "\u672a", taoHua: "\u5b50" }
-] as const;
-
-const tianDeMarkerByMonthBranch: Record<string, string> = {
-  "\u5bc5": "\u4e01",
-  "\u536f": "\u7533",
-  "\u8fb0": "\u58ec",
-  "\u5df3": "\u8f9b",
-  "\u5348": "\u4ea5",
-  "\u672a": "\u7532",
-  "\u7533": "\u7678",
-  "\u9149": "\u5bc5",
-  "\u620c": "\u4e19",
-  "\u4ea5": "\u4e59",
-  "\u5b50": "\u5df3",
-  "\u4e11": "\u5e9a"
-};
-
-const yueDeStemByMonthBranchGroup: Array<{ branches: readonly string[]; stem: string }> = [
-  { branches: ["\u5bc5", "\u5348", "\u620c"], stem: "\u4e19" },
-  { branches: ["\u7533", "\u5b50", "\u8fb0"], stem: "\u58ec" },
-  { branches: ["\u4ea5", "\u536f", "\u672a"], stem: "\u7532" },
-  { branches: ["\u5df3", "\u9149", "\u4e11"], stem: "\u5e9a" }
-] as const;
-
-const wenChangBranchByStem: Record<string, string> = {
-  "\u7532": "\u5df3",
-  "\u4e59": "\u5348",
-  "\u4e19": "\u7533",
-  "\u620a": "\u7533",
-  "\u4e01": "\u9149",
-  "\u5df1": "\u9149",
-  "\u5e9a": "\u4ea5",
-  "\u8f9b": "\u5b50",
-  "\u58ec": "\u5bc5",
-  "\u7678": "\u536f"
 };
 
 export function enrichProfessionalBaziChart<T extends CalculatedBaziChart | BaziChartDto>(
@@ -239,64 +177,13 @@ function enrichPillarsWithShensha(
   pillars: BaziChartDto["pillars"],
   dayMaster: string
 ): BaziChartDto["pillars"] {
-  const calculated = calculateShensha(pillars, dayMaster);
+  const calculated = calculateBaziShensha(pillars, dayMaster);
   return {
     year: { ...pillars.year, shensha: mergeShensha(pillars.year.shensha, calculated.year) },
     month: { ...pillars.month, shensha: mergeShensha(pillars.month.shensha, calculated.month) },
     day: { ...pillars.day, shensha: mergeShensha(pillars.day.shensha, calculated.day) },
     hour: { ...pillars.hour, shensha: mergeShensha(pillars.hour.shensha, calculated.hour) }
   };
-}
-
-function calculateShensha(
-  pillars: BaziChartDto["pillars"],
-  dayMaster: string
-): Record<(typeof pillarOrder)[number], string[]> {
-  const result: Record<(typeof pillarOrder)[number], string[]> = {
-    year: [],
-    month: [],
-    day: [],
-    hour: []
-  };
-  const dayBranchRule = dayBranchShenshaRules.find((rule) => rule.branches.includes(pillars.day.branch));
-  const tianYiBranches = tianYiBranchesByStem[dayMaster] ?? [];
-  const tianDeMarker = tianDeMarkerByMonthBranch[pillars.month.branch];
-  const yueDeStem = yueDeStemByMonthBranchGroup.find((rule) => rule.branches.includes(pillars.month.branch))?.stem;
-  const wenChangBranch = wenChangBranchByStem[dayMaster];
-
-  for (const name of pillarOrder) {
-    const pillar = pillars[name];
-    const labels: string[] = [];
-
-    if (dayBranchRule?.jiangXing === pillar.branch) {
-      labels.push("\u5c06\u661f");
-    }
-    if (dayBranchRule?.yiMa === pillar.branch) {
-      labels.push("\u9a7f\u9a6c");
-    }
-    if (dayBranchRule?.huaGai === pillar.branch) {
-      labels.push("\u534e\u76d6");
-    }
-    if (dayBranchRule?.taoHua === pillar.branch) {
-      labels.push("\u6843\u82b1");
-    }
-    if (tianYiBranches.includes(pillar.branch)) {
-      labels.push("\u5929\u4e59\u8d35\u4eba");
-    }
-    if (tianDeMarker && (pillar.stem === tianDeMarker || pillar.branch === tianDeMarker)) {
-      labels.push("\u5929\u5fb7\u8d35\u4eba");
-    }
-    if (yueDeStem && pillar.stem === yueDeStem) {
-      labels.push("\u6708\u5fb7\u8d35\u4eba");
-    }
-    if (wenChangBranch && pillar.branch === wenChangBranch) {
-      labels.push("\u6587\u660c\u8d35\u4eba");
-    }
-
-    result[name] = labels;
-  }
-
-  return result;
 }
 
 function mergeShensha(current: string[] | undefined, calculated: string[]): string[] {

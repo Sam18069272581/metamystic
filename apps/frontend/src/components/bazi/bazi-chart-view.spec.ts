@@ -22,15 +22,16 @@ describe("bazi chart view helpers", () => {
     ]);
     expect(getPillarShensha({ stem: "乙", branch: "亥", tenGod: "比肩", hiddenStems: [], nayin: "山头火" })).toEqual([]);
   });
-  it("deduplicates shensha labels and removes blank display values", () => {
+
+  it("deduplicates shensha labels, removes blank values, and keeps the full list", () => {
     expect(
       getPillarShensha({
-        stem: "\u4e59",
-        branch: "\u536f",
-        tenGod: "\u65e5\u4e3b",
+        stem: "乙",
+        branch: "卯",
+        tenGod: "日主",
         hiddenStems: [],
-        shensha: ["\u5c06\u661f", " ", "\u5c06\u661f", "\u5929\u5fb7\u8d35\u4eba"]
+        shensha: ["将星", " ", "将星", "天德贵人", "文昌贵人", "天厨贵人"]
       })
-    ).toEqual(["\u5c06\u661f", "\u5929\u5fb7\u8d35\u4eba"]);
+    ).toEqual(["将星", "天德贵人", "文昌贵人", "天厨贵人"]);
   });
 });
