@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BaziChartDto, FiveElement } from "@metamystic/shared";
 import { getOrderedBaziPillars, getPillarShensha } from "./bazi-chart-view";
+import { buildPillarShenshaInsights, getShenshaToneClass, type ShenshaInsight } from "./bazi-shensha-view";
 
 const elementLabels: Record<FiveElement, string> = {
   wood: "\u6728",
@@ -61,24 +62,23 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
           ))}
         </div>
         <div className="grid grid-cols-4">
-          {pillars.map(([name, pillar]) => (
-            <div key={name} className="border-r border-white/10 p-3 text-center last:border-r-0">
-              <p className="text-[11px] text-white/40">{pillar.tenGod}</p>
-              <p className="mt-2 text-2xl font-semibold text-emerald-300">{pillar.stem}</p>
-              <p className="mt-1 text-2xl font-semibold text-rose-300">{pillar.branch}</p>
-              <div className="mt-2 flex min-h-12 flex-wrap justify-center gap-1">
-                {getPillarShensha(pillar).length > 0 ? (
-                  getPillarShensha(pillar).map((item) => (
-                    <span key={`${name}-${item}`} className="rounded-full bg-amber-200/10 px-1.5 py-0.5 text-[10px] text-amber-100/75">
-                      {item}
-                    </span>
-                  ))
-                ) : (
-                  <span className="self-start text-[10px] text-white/28">{"\u672a\u89c1\u4e3b\u795e\u715e"}</span>
-                )}
+          {pillars.map(([name, pillar]) => {
+            const insights = buildPillarShenshaInsights(getPillarShensha(pillar));
+            return (
+              <div key={name} className="border-r border-white/10 p-3 text-center last:border-r-0">
+                <p className="text-[11px] text-white/40">{pillar.tenGod}</p>
+                <p className="mt-2 text-2xl font-semibold text-emerald-300">{pillar.stem}</p>
+                <p className="mt-1 text-2xl font-semibold text-rose-300">{pillar.branch}</p>
+                <div className="mt-2 flex min-h-12 flex-wrap justify-center gap-1">
+                  {insights.length > 0 ? (
+                    insights.map((insight) => <ShenshaChip key={`${name}-${insight.label}`} insight={insight} />)
+                  ) : (
+                    <span className="self-start text-[10px] text-white/28">{"\u672a\u89c1\u4e3b\u795e\u715e"}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         {mode === "professional" ? (
           <div className="grid grid-cols-4 border-t border-white/10 bg-black/10">
@@ -100,6 +100,8 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
           </div>
         ) : null}
       </div>
+
+      {mode === "professional" ? <ShenshaInsightSection pillars={pillars} /> : null}
 
       <div className="mt-4 grid grid-cols-1 gap-3">
         {chart.analysis ? (
@@ -159,6 +161,61 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
             <AnalysisRow label={"\u8eab\u5fc3\u63d0\u9192"} content={chart.analysis.health} />
           </div>
         ) : null}
+      </div>
+    </section>
+  );
+}
+
+function ShenshaChip({ insight }: { insight: ShenshaInsight }) {
+  return (
+    <span
+      className={`rounded-full border px-1.5 py-0.5 text-[10px] ${getShenshaToneClass(insight.tone)}`}
+      title={`${insight.category}：${insight.summary}`}
+    >
+      {insight.label}
+    </span>
+  );
+}
+
+function ShenshaInsightSection({ pillars }: { pillars: ReturnType<typeof getOrderedBaziPillars> }) {
+  const rows = pillars
+    .map(([name, pillar]) => ({
+      name,
+      label: pillarLabels[name],
+      insights: buildPillarShenshaInsights(getPillarShensha(pillar))
+    }))
+    .filter((row) => row.insights.length > 0);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="mt-4 rounded-2xl border border-white/8 bg-white/[0.025] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="gold-text text-sm font-semibold">{"\u795e\u715e\u89e3\u8bfb"}</p>
+        <p className="text-[11px] text-white/35">{"\u4ee5\u5e38\u7528\u67e5\u6cd5\u4e3a\u53c2\u8003"}</p>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {rows.map((row) => (
+          <div key={row.name} className="grid gap-2 rounded-xl border border-white/8 bg-black/10 p-2">
+            <p className="text-xs text-white/45">{row.label}</p>
+            <div className="grid gap-2">
+              {row.insights.map((insight) => (
+                <div key={`${row.name}-${insight.label}`} className="grid grid-cols-[auto_1fr] gap-2 text-xs leading-5">
+                  <span className={`h-fit rounded-full border px-2 py-0.5 ${getShenshaToneClass(insight.tone)}`}>
+                    {insight.category}
+                  </span>
+                  <p className="text-white/65">
+                    <span className="text-white/82">{insight.label}</span>
+                    {"："}
+                    {insight.summary}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
