@@ -27,5 +27,6 @@ export function readCookie(cookieHeader: string | undefined, name: string): stri
 
 function serializeCookie(name: string, value: string, maxAge: number): string {
   const secure = isProduction ? "; Secure" : "";
-  return `${name}=${encodeURIComponent(value)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`;
+  const sameSite = isProduction ? "None" : "Lax";
+  return `${name}=${encodeURIComponent(value)}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${maxAge}${secure}`;
 }
