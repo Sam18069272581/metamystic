@@ -24,8 +24,6 @@ RUN pnpm --filter @metamystic/backend build
 
 FROM base AS runtime
 
-ENV NODE_ENV=production
-
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json apps/backend/package.json
 COPY apps/frontend/package.json apps/frontend/package.json
@@ -36,5 +34,7 @@ COPY --from=build /app/apps/backend/dist apps/backend/dist
 COPY --from=build /app/apps/backend/prisma apps/backend/prisma
 COPY --from=build /app/packages/shared/src packages/shared/src
 RUN pnpm --filter @metamystic/backend prisma:generate
+
+ENV NODE_ENV=production
 
 CMD ["sh", "-c", "pnpm --filter @metamystic/backend prisma:deploy && pnpm --filter @metamystic/backend start"]
