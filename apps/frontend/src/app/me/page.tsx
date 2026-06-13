@@ -11,8 +11,8 @@ import type {
   UserChartArchiveDto,
   UserProfileListResponse
 } from "@metamystic/shared";
-import { ArrowRight, CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, LogIn, Mail, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
-import { getAccountAuthActions } from "./account-auth-actions";
+import { ArrowRight, CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, LogIn, LogOut, Mail, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
+import { getAccountAuthActions, getAccountLogoutAction } from "./account-auth-actions";
 import { getAccountAuthStatus, type AccountAuthStatus } from "./account-auth-status";
 import { buildAccountNextStep, type AccountNextStep } from "./account-next-step";
 import { ShareButton } from "@/components/share/share-button";
@@ -22,6 +22,7 @@ import { getApiBaseUrl } from "@/lib/public-url";
 
 export default function MePage() {
   const authActions = getAccountAuthActions(getApiBaseUrl(process.env));
+  const logoutAction = getAccountLogoutAction();
   const [authSource, setAuthSource] = useState<string | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);
   const [user, setUser] = useState<AuthUserDto | undefined>();
@@ -160,6 +161,25 @@ export default function MePage() {
     }
   }
 
+  async function handleLogout(): Promise<void> {
+    setAccountLoading(true);
+    setError(undefined);
+    try {
+      await apiClient.logout();
+      setUser(undefined);
+      setArchive(undefined);
+      setProfiles(undefined);
+      setCompatibility(undefined);
+      setCompatibilityHistory([]);
+      setAuthSource(null);
+      window.history.replaceState(null, "", "/me");
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "退出登录失败，请稍后重试。");
+    } finally {
+      setAccountLoading(false);
+    }
+  }
+
   return (
     <MobileShell title={"\u4e2a\u4eba\u8d44\u6599"}>
       <div className="space-y-4">
@@ -206,6 +226,17 @@ export default function MePage() {
                 );
               })}
             </div>
+          ) : null}
+          {user && !accountLoading ? (
+            <button
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/68 transition hover:border-amber-200/30 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={accountLoading}
+              onClick={() => void handleLogout()}
+              type="button"
+            >
+              <LogOut className="h-4 w-4" />
+              {logoutAction.label}
+            </button>
           ) : null}
         </section>
 
