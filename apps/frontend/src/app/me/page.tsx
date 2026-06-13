@@ -11,12 +11,15 @@ import type {
   UserChartArchiveDto,
   UserProfileListResponse
 } from "@metamystic/shared";
-import { CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, LogIn, Mail, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
+import { getAccountAuthActions } from "./account-auth-actions";
 import { ShareButton } from "@/components/share/share-button";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
+import { getApiBaseUrl } from "@/lib/public-url";
 
 export default function MePage() {
+  const authActions = getAccountAuthActions(getApiBaseUrl(process.env));
   const [user, setUser] = useState<AuthUserDto | undefined>();
   const [archive, setArchive] = useState<UserChartArchiveDto | undefined>();
   const [profiles, setProfiles] = useState<UserProfileListResponse | undefined>();
@@ -153,6 +156,27 @@ export default function MePage() {
             </div>
           ) : null}
           {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
+          {!user ? (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {authActions.map((action) => {
+                const Icon = action.variant === "primary" ? LogIn : Mail;
+                return (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    className={
+                      action.variant === "primary"
+                        ? "flex items-center justify-center gap-2 rounded-2xl bg-[#6d4bd0] px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-[#7b58df]"
+                        : "flex items-center justify-center gap-2 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/15"
+                    }
+                  >
+                    <Icon className="h-4 w-4" />
+                    {action.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
         </section>
 
         <section className="mystic-card rounded-3xl p-5">

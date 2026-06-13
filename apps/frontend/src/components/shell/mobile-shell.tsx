@@ -1,18 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Home, MessageCircle, MoonStar, UserRound } from "lucide-react";
+import { mobileShellNavItems } from "./mobile-shell-nav";
 
 interface MobileShellProps {
   title?: string;
   children: ReactNode;
 }
-
-const nav = [
-  { href: "/", label: "\u9996\u9875", icon: Home },
-  { href: "/consult", label: "AI", icon: MessageCircle },
-  { href: "/charts/bazi", label: "\u547d\u76d8", icon: MoonStar },
-  { href: "/", label: "\u6211\u7684", icon: UserRound }
-];
 
 export function MobileShell({ title = "MetaMystic", children }: MobileShellProps) {
   return (
@@ -24,7 +17,7 @@ export function MobileShell({ title = "MetaMystic", children }: MobileShellProps
       </header>
       <section className="flex-1 pb-24">{children}</section>
       <nav className="fixed bottom-4 left-1/2 z-20 grid w-[min(398px,calc(100vw-32px))] -translate-x-1/2 grid-cols-4 rounded-[28px] border border-white/10 bg-[#0c1020]/90 px-3 py-2 shadow-glow backdrop-blur-xl">
-        {nav.map((item) => {
+        {mobileShellNavItems.map((item) => {
           const Icon = item.icon;
           return (
             <Link
