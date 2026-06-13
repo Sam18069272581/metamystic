@@ -18,6 +18,7 @@ async function main() {
   await step("anonymous-bazi", "Anonymous profile can create a Bazi chart", smokeAnonymousBazi);
   await step("auth-daily-fortune", "Email auth can create profile, Bazi chart, and daily fortune", smokeAuthDailyFortune);
   await step("auth-chart-archive", "Authenticated users can create and retrieve Bazi, Ziwei, and Astrology charts", smokeAuthChartArchive);
+  await step("auth-history-privacy", "Authenticated consultations are hidden from public history lookup", smokeAuthHistoryPrivacy);
   if (config.skipAi) {
     summary.push({ name: "anonymous-ai-consultation", status: "skipped", detail: "SMOKE_SKIP_AI is enabled" });
     summary.push({ name: "auth-ai-consultation", status: "skipped", detail: "SMOKE_SKIP_AI is enabled" });
@@ -152,6 +153,37 @@ async function smokeAuthChartArchive() {
   return `profile=${profile.id}, bazi=${bazi.id}, ziwei=${ziwei.id}, astrology=${astrology.id}`;
 }
 
+async function smokeAuthHistoryPrivacy() {
+  const session = await registerSmokeUser();
+  const headers = authHeaders(session.accessToken);
+  const profile = await requestJson("/users/me/profile", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(profileInput("Smoke Privacy User"))
+  });
+  const chart = await requestJson("/users/me/charts/bazi", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ profileId: profile.id })
+  });
+  const consultation = await requestJson("/users/me/consultations", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      profileId: profile.id,
+      chartId: chart.id,
+      question: "请判断近期是否适合推进职业规划？",
+      tone: "strategic"
+    })
+  });
+
+  await requestJsonExpectError(`/consultations/${consultation.id}`, 404);
+  const userHistory = await requestJson(`/users/me/consultations/${consultation.id}`, { headers });
+  assert(userHistory.consultation.id === consultation.id, "Authenticated history lookup returned the wrong consultation");
+  assert(userHistory.consultation.chartId === chart.id, "Authenticated history lookup returned the wrong chart");
+  return `consultation=${consultation.id}`;
+}
+
 async function smokeAnonymousAiConsultation() {
   const profile = await createAnonymousProfile("smoke-ai");
   const chart = await requestJson("/charts/bazi", {
@@ -280,6 +312,21 @@ async function requestJson(path, init = {}) {
   }
   assert(payload.status === "success", `Request ${path} returned an unexpected API envelope`);
   return payload.data;
+}
+
+async function requestJsonExpectError(path, expectedStatus, init = {}) {
+  const response = await fetchWithTimeout(joinUrl(config.apiBaseUrl, path), {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init.headers ?? {})
+    }
+  });
+  const text = await response.text();
+  const payload = parseJson(text, path);
+  assert(response.status === expectedStatus, `Expected ${path} to return HTTP ${expectedStatus}, received HTTP ${response.status}`);
+  assert(payload.status === "error", `Expected ${path} to return an error envelope`);
+  return payload.error;
 }
 
 async function fetchWithTimeout(url, init = {}) {
