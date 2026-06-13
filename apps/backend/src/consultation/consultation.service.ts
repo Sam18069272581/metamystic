@@ -13,7 +13,7 @@ import { KnowledgeService } from "../knowledge/knowledge.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ProfileService } from "../profile/profile.service";
 import { SafetyService } from "../safety/safety.service";
-import type { AiProvider } from "./ai-provider";
+import type { AiProvider, AiProviderStatusEvent } from "./ai-provider";
 import type { CreateConsultationDto } from "./dto/create-consultation.dto";
 
 interface ConsultationMessageRecord {
@@ -212,6 +212,20 @@ export class ConsultationService {
         citations: knowledge.chunks,
         disclaimer: safety.disclaimer
       })) {
+        if (isAiProviderStatusEvent(chunk)) {
+          emit({
+            type: "provider",
+            consultationId: id,
+            providerName: chunk.providerName,
+            model: chunk.model,
+            status: chunk.status,
+            isFallback: chunk.isFallback,
+            failedProviderName: chunk.failedProviderName,
+            reason: chunk.reason,
+            durationMs: chunk.durationMs
+          });
+          continue;
+        }
         answer.push(chunk.content);
         emit({
           type: "chunk",
@@ -312,4 +326,8 @@ export class ConsultationService {
       createdAt: chart.createdAt.toISOString()
     };
   }
+}
+
+function isAiProviderStatusEvent(event: unknown): event is AiProviderStatusEvent {
+  return Boolean(event && typeof event === "object" && "type" in event && event.type === "provider");
 }

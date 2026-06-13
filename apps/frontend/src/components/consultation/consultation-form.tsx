@@ -73,6 +73,9 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
           if (event.type === "chunk") {
             store.appendStreamSection(event.section, event.content);
           }
+          if (event.type === "provider") {
+            store.setProviderStatus(event);
+          }
           if (event.type === "done") {
             store.setLoading(false);
             void apiClient

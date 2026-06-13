@@ -1,9 +1,11 @@
 "use client";
 
+import type { ConsultationProviderEvent } from "@metamystic/shared";
 import type { StreamSections } from "@/store/app-store";
-import { BookOpenText, BrainCircuit, Lightbulb, ShieldCheck, Sparkles } from "lucide-react";
+import { BookOpenText, BrainCircuit, Lightbulb, RadioTower, ShieldCheck, Sparkles } from "lucide-react";
 import type { ComponentType } from "react";
 import { parseCitationContent } from "./citation-parser";
+import { formatProviderStatus } from "./consultation-provider-status";
 
 const sectionMeta: Record<
   keyof StreamSections,
@@ -46,9 +48,16 @@ const sectionMeta: Record<
   }
 };
 
-export function ConsultationStream({ sections }: { sections: StreamSections }) {
+export function ConsultationStream({
+  providerStatus,
+  sections
+}: {
+  providerStatus?: ConsultationProviderEvent | undefined;
+  sections: StreamSections;
+}) {
   return (
     <div className="space-y-3">
+      {providerStatus ? <ProviderStatusCard status={providerStatus} /> : null}
       {(Object.entries(sections) as Array<[keyof StreamSections, string]>)
         .filter(([, value]) => value.trim().length > 0)
         .map(([section, content]) => {
@@ -85,6 +94,28 @@ export function ConsultationStream({ sections }: { sections: StreamSections }) {
             </article>
           );
         })}
+    </div>
+  );
+}
+
+function ProviderStatusCard({ status }: { status: ConsultationProviderEvent }) {
+  const viewModel = formatProviderStatus(status);
+  const toneClass =
+    viewModel.tone === "fallback"
+      ? "border-amber-200/25 bg-amber-200/[0.08] text-amber-50"
+      : "border-violet-200/20 bg-violet-300/[0.07] text-violet-50";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${toneClass}`}>
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-current/20 bg-black/10">
+          <RadioTower className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{viewModel.title}</p>
+          <p className="mt-1 text-xs leading-5 text-white/58">{viewModel.detail}</p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -25,6 +25,7 @@ function ConsultPageContent() {
   const consultations = useAppStore((state) => state.consultations);
   const history = useAppStore((state) => state.history);
   const memory = useAppStore((state) => state.memory);
+  const providerStatus = useAppStore((state) => state.providerStatus);
   const streamSections = useAppStore((state) => state.streamSections);
 
   return (
@@ -35,7 +36,7 @@ function ConsultPageContent() {
           initialProfileId={searchParams.get("profileId") ?? undefined}
         />
         {chart ? <BaziChartCard chart={chart} /> : null}
-        <ConsultationStream sections={streamSections} />
+        <ConsultationStream providerStatus={providerStatus} sections={streamSections} />
         <ProfileMemoryPanel memory={memory} />
         <RecentConsultationsPanel consultations={consultations} />
         <ConsultationHistoryPanel history={history} />

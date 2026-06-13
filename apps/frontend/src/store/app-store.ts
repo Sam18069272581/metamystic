@@ -6,6 +6,7 @@ import type {
   BaziChartDto,
   ConsultationDto,
   ConsultationHistoryDto,
+  ConsultationProviderEvent,
   ProfileMemorySignalsDto,
   ProfileDto
 } from "@metamystic/shared";
@@ -19,6 +20,7 @@ interface AppState {
   consultations: ConsultationDto[];
   history: ConsultationHistoryDto | undefined;
   memory: ProfileMemorySignalsDto | undefined;
+  providerStatus: ConsultationProviderEvent | undefined;
   streamSections: StreamSections;
   loading: boolean;
   error: string | undefined;
@@ -28,6 +30,7 @@ interface AppState {
   setConsultations: (consultations: ConsultationDto[]) => void;
   setHistory: (history?: ConsultationHistoryDto) => void;
   setMemory: (memory?: ProfileMemorySignalsDto) => void;
+  setProviderStatus: (providerStatus?: ConsultationProviderEvent) => void;
   appendStreamSection: (section: AiSectionType, content: string) => void;
   resetStream: () => void;
   setLoading: (loading: boolean) => void;
@@ -49,6 +52,7 @@ export const useAppStore = create<AppState>((set) => ({
   consultations: [],
   history: undefined,
   memory: undefined,
+  providerStatus: undefined,
   streamSections: emptySections,
   loading: false,
   error: undefined,
@@ -58,6 +62,7 @@ export const useAppStore = create<AppState>((set) => ({
   setConsultations: (consultations) => set({ consultations }),
   setHistory: (history) => set({ history }),
   setMemory: (memory) => set({ memory }),
+  setProviderStatus: (providerStatus) => set({ providerStatus }),
   appendStreamSection: (section, content) =>
     set((state) => ({
       streamSections: {
@@ -67,7 +72,7 @@ export const useAppStore = create<AppState>((set) => ({
           : content
       }
     })),
-  resetStream: () => set({ streamSections: { ...emptySections }, error: undefined, history: undefined }),
+  resetStream: () => set({ streamSections: { ...emptySections }, providerStatus: undefined, error: undefined, history: undefined }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error })
 }));

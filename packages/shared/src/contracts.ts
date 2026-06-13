@@ -394,6 +394,18 @@ export interface ConsultationDoneEvent {
   consultationId: string;
 }
 
+export interface ConsultationProviderEvent {
+  type: "provider";
+  consultationId: string;
+  providerName: string;
+  model: string;
+  status: "primary" | "fallback";
+  isFallback: boolean;
+  failedProviderName?: string | undefined;
+  reason?: string | undefined;
+  durationMs?: number | undefined;
+}
+
 export interface ConsultationErrorEvent {
   type: "error";
   consultationId: string;
@@ -402,6 +414,7 @@ export interface ConsultationErrorEvent {
 
 export type ConsultationStreamEvent =
   | ConsultationChunkEvent
+  | ConsultationProviderEvent
   | ConsultationDoneEvent
   | ConsultationErrorEvent;
 

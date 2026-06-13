@@ -1,3 +1,4 @@
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { AiSectionType, BaziChartDto, ConsultationTone, KnowledgeChunkDto } from "@metamystic/shared";
 import OpenAI from "openai";
@@ -18,8 +19,23 @@ export interface AiProviderChunk {
   content: string;
 }
 
+export interface AiProviderStatusEvent {
+  type: "provider";
+  providerName: string;
+  model: string;
+  status: "primary" | "fallback";
+  isFallback: boolean;
+  failedProviderName?: string | undefined;
+  reason?: string | undefined;
+  durationMs?: number | undefined;
+}
+
+export type AiProviderStreamEvent = AiProviderChunk | AiProviderStatusEvent;
+
 export interface AiProvider {
-  streamConsultation(input: AiConsultationInput): AsyncGenerator<AiProviderChunk>;
+  readonly providerName?: string | undefined;
+  readonly model?: string | undefined;
+  streamConsultation(input: AiConsultationInput): AsyncGenerator<AiProviderStreamEvent>;
 }
 
 interface OpenAiClientLike {
@@ -99,17 +115,46 @@ function withBaseURL(baseURL: string | undefined): Pick<OpenAiCompatibleProvider
 }
 
 export class ResilientAiProvider implements AiProvider {
+  private readonly logger = new Logger(ResilientAiProvider.name);
+
   constructor(
     readonly primary: AiProvider,
     private readonly fallback: AiProvider
   ) {}
 
-  async *streamConsultation(input: AiConsultationInput): AsyncGenerator<AiProviderChunk> {
+  async *streamConsultation(input: AiConsultationInput): AsyncGenerator<AiProviderStreamEvent> {
+    const startedAt = Date.now();
+    const primaryDescriptor = describeProvider(this.primary, "primary");
+    yield {
+      type: "provider",
+      providerName: primaryDescriptor.providerName,
+      model: primaryDescriptor.model,
+      status: "primary",
+      isFallback: false
+    };
+
     try {
       for await (const chunk of this.primary.streamConsultation(input)) {
         yield chunk;
       }
-    } catch {
+    } catch (error) {
+      const fallbackDescriptor = describeProvider(this.fallback, "fallback");
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `AI provider ${primaryDescriptor.providerName}/${primaryDescriptor.model} failed after ${
+          Date.now() - startedAt
+        }ms; falling back to ${fallbackDescriptor.providerName}/${fallbackDescriptor.model}. ${reason}`
+      );
+      yield {
+        type: "provider",
+        providerName: fallbackDescriptor.providerName,
+        model: fallbackDescriptor.model,
+        status: "fallback",
+        isFallback: true,
+        failedProviderName: primaryDescriptor.providerName,
+        reason: "Primary AI provider unavailable",
+        durationMs: Date.now() - startedAt
+      };
       for await (const chunk of this.fallback.streamConsultation(input)) {
         yield chunk;
       }
@@ -157,6 +202,9 @@ export class OpenAiConsultationProvider implements AiProvider {
 }
 
 export class MockAiProvider implements AiProvider {
+  readonly providerName = "mock";
+  readonly model = "rule-based";
+
   async *streamConsultation(input: AiConsultationInput): AsyncGenerator<AiProviderChunk> {
     const prompt = buildConsultationPrompt(input);
     const primaryCitation = input.citations.at(0);
@@ -197,6 +245,13 @@ export class MockAiProvider implements AiProvider {
       yield chunk;
     }
   }
+}
+
+function describeProvider(provider: AiProvider, fallbackName: string): { providerName: string; model: string } {
+  return {
+    providerName: provider.providerName ?? fallbackName,
+    model: provider.model ?? "unknown"
+  };
 }
 
 function formatCitationSection(citations: KnowledgeChunkDto[], promptUser: string): string {

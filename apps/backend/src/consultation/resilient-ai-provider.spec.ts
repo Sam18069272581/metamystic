@@ -5,11 +5,15 @@ import type { AiConsultationInput, AiProvider } from "./ai-provider";
 describe("ResilientAiProvider", () => {
   it("falls back to mock-compatible chunks when the primary provider fails", async () => {
     const primary: AiProvider = {
+      providerName: "openai",
+      model: "gpt-4.1-mini",
       async *streamConsultation() {
         throw new Error("OpenAI unavailable");
       }
     };
     const fallback: AiProvider = {
+      providerName: "mock",
+      model: "rule-based",
       async *streamConsultation() {
         yield { section: "verdict", content: "\u672c\u5730\u56de\u9000\u7ed3\u8bba\u3002" };
       }
@@ -21,7 +25,26 @@ describe("ResilientAiProvider", () => {
       chunks.push(chunk);
     }
 
-    expect(chunks).toEqual([{ section: "verdict", content: "\u672c\u5730\u56de\u9000\u7ed3\u8bba\u3002" }]);
+    expect(chunks).toEqual([
+      {
+        type: "provider",
+        providerName: "openai",
+        model: "gpt-4.1-mini",
+        status: "primary",
+        isFallback: false
+      },
+      {
+        type: "provider",
+        providerName: "mock",
+        model: "rule-based",
+        status: "fallback",
+        isFallback: true,
+        failedProviderName: "openai",
+        reason: "Primary AI provider unavailable",
+        durationMs: expect.any(Number)
+      },
+      { section: "verdict", content: "\u672c\u5730\u56de\u9000\u7ed3\u8bba\u3002" }
+    ]);
   });
 });
 
