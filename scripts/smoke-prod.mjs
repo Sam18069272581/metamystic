@@ -17,6 +17,7 @@ async function main() {
   await step("health", "Backend health endpoint is ok", smokeHealth);
   await step("anonymous-bazi", "Anonymous profile can create a Bazi chart", smokeAnonymousBazi);
   await step("auth-daily-fortune", "Email auth can create profile, Bazi chart, and daily fortune", smokeAuthDailyFortune);
+  await step("auth-chart-archive", "Authenticated users can create and retrieve Bazi, Ziwei, and Astrology charts", smokeAuthChartArchive);
   if (config.skipAi) {
     summary.push({ name: "ai-consultation", status: "skipped", detail: "SMOKE_SKIP_AI is enabled" });
   } else {
@@ -99,6 +100,54 @@ async function smokeAuthDailyFortune() {
   assert(typeof fortune.score === "number", "Daily fortune score was not numeric");
   assert(Array.isArray(fortune.advice) && fortune.advice.length > 0, "Daily fortune advice was empty");
   return `user=${session.user.id}, profile=${profile.id}, chart=${chart.id}, score=${fortune.score}`;
+}
+
+async function smokeAuthChartArchive() {
+  const session = await registerSmokeUser();
+  const headers = authHeaders(session.accessToken);
+  const profile = await requestJson("/users/me/profile", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(profileInput("Smoke Chart User"))
+  });
+
+  const [bazi, ziwei, astrology] = await Promise.all([
+    requestJson("/users/me/charts/bazi", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ profileId: profile.id })
+    }),
+    requestJson("/users/me/charts/ziwei", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ profileId: profile.id })
+    }),
+    requestJson("/users/me/charts/astrology", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ profileId: profile.id })
+    })
+  ]);
+
+  const archive = await requestJson("/users/me/charts", { headers });
+  assert(archive.profile?.id === profile.id, "Chart archive did not use the default profile");
+  assert(archive.baziCharts.some((chart) => chart.id === bazi.id), "Bazi chart was missing from archive");
+  assert(archive.ziweiCharts.some((chart) => chart.id === ziwei.id), "Ziwei chart was missing from archive");
+  assert(archive.astrologyCharts.some((chart) => chart.id === astrology.id), "Astrology chart was missing from archive");
+
+  const [baziDetail, ziweiDetail, astrologyDetail] = await Promise.all([
+    requestJson(`/users/me/charts/bazi/${bazi.id}`, { headers }),
+    requestJson(`/users/me/charts/ziwei/${ziwei.id}`, { headers }),
+    requestJson(`/users/me/charts/astrology/${astrology.id}`, { headers })
+  ]);
+
+  assert(baziDetail.kind === "bazi" && baziDetail.chart.id === bazi.id, "Bazi detail lookup returned the wrong chart");
+  assert(ziweiDetail.kind === "ziwei" && ziweiDetail.chart.id === ziwei.id, "Ziwei detail lookup returned the wrong chart");
+  assert(astrologyDetail.kind === "astrology" && astrologyDetail.chart.id === astrology.id, "Astrology detail lookup returned the wrong chart");
+  assert(Array.isArray(ziweiDetail.chart.palaces) && ziweiDetail.chart.palaces.length > 0, "Ziwei chart did not include palaces");
+  assert(Array.isArray(astrologyDetail.chart.placements) && astrologyDetail.chart.placements.length > 0, "Astrology chart did not include placements");
+
+  return `profile=${profile.id}, bazi=${bazi.id}, ziwei=${ziwei.id}, astrology=${astrology.id}`;
 }
 
 async function smokeAiConsultation() {
