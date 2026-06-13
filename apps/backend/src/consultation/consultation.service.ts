@@ -111,7 +111,7 @@ export class ConsultationService {
       where: { id },
       include: { messages: { orderBy: { createdAt: "asc" } } }
     });
-    if (!consultation) {
+    if (!consultation || consultation.userId) {
       throw new NotFoundException("Consultation not found");
     }
 

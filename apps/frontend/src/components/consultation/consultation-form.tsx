@@ -6,6 +6,7 @@ import type { ConsultationTone, Gender } from "@metamystic/shared";
 import { apiClient } from "@/lib/api-client";
 import { useAppStore } from "@/store/app-store";
 import { buildConsultationFormView } from "./consultation-form-view";
+import { getConsultationHistoryScope } from "./consultation-history-scope";
 import { questionTemplateCategories } from "./question-templates";
 
 interface ConsultationFormProps {
@@ -85,6 +86,7 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
       const consultation = user || usingSavedChart
         ? await apiClient.createMyConsultation(consultationInput)
         : await apiClient.createConsultation(consultationInput);
+      const historyScope = getConsultationHistoryScope({ hasUser: Boolean(user), usingSavedChart });
       store.setConsultation(consultation);
       apiClient.streamConsultation(
         consultation.id,
@@ -97,8 +99,11 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
           }
           if (event.type === "done") {
             store.setLoading(false);
-            void apiClient
-              .getConsultationHistory(consultation.id)
+            const historyRequest =
+              historyScope === "user"
+                ? apiClient.getMyConsultationHistory(consultation.id)
+                : apiClient.getConsultationHistory(consultation.id);
+            void historyRequest
               .then((history) => store.setHistory(history))
               .catch((error: unknown) => {
                 store.setError(

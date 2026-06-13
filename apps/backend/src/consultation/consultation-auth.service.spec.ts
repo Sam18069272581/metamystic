@@ -85,4 +85,31 @@ describe("ConsultationService authenticated creation", () => {
 
     await expect(service.getUserHistory("user-1", "other-consult")).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it("does not expose authenticated consultation history through the public history lookup", async () => {
+    const service = new ConsultationService(
+      {
+        consultation: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "consult-1",
+            userId: "user-1",
+            profileId: "profile-1",
+            chartId: "chart-1",
+            question: "\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u5417\uff1f",
+            tone: "strategic",
+            status: "completed",
+            summary: "\u9002\u5408\u5c0f\u6b65\u63a8\u8fdb",
+            createdAt: new Date("2026-06-02T00:00:00.000Z"),
+            messages: []
+          })
+        }
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never
+    );
+
+    await expect(service.getHistory("consult-1")).rejects.toBeInstanceOf(NotFoundException);
+  });
 });
