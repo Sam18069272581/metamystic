@@ -37,4 +37,4 @@ RUN pnpm --filter @metamystic/backend prisma:generate
 
 ENV NODE_ENV=production
 
-CMD ["sh", "-c", "pnpm --filter @metamystic/backend prisma:deploy && pnpm --filter @metamystic/backend start"]
+CMD ["pnpm", "--filter", "@metamystic/backend", "start"]
