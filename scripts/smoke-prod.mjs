@@ -19,9 +19,11 @@ async function main() {
   await step("auth-daily-fortune", "Email auth can create profile, Bazi chart, and daily fortune", smokeAuthDailyFortune);
   await step("auth-chart-archive", "Authenticated users can create and retrieve Bazi, Ziwei, and Astrology charts", smokeAuthChartArchive);
   if (config.skipAi) {
-    summary.push({ name: "ai-consultation", status: "skipped", detail: "SMOKE_SKIP_AI is enabled" });
+    summary.push({ name: "anonymous-ai-consultation", status: "skipped", detail: "SMOKE_SKIP_AI is enabled" });
+    summary.push({ name: "auth-ai-consultation", status: "skipped", detail: "SMOKE_SKIP_AI is enabled" });
   } else {
-    await step("ai-consultation", "Anonymous AI consultation streams and persists history", smokeAiConsultation);
+    await step("anonymous-ai-consultation", "Anonymous AI consultation streams and persists history", smokeAnonymousAiConsultation);
+    await step("auth-ai-consultation", "Authenticated saved-chart AI consultation streams and persists user history", smokeAuthAiConsultation);
   }
 
   console.log("\nSmoke test completed.");
@@ -150,7 +152,7 @@ async function smokeAuthChartArchive() {
   return `profile=${profile.id}, bazi=${bazi.id}, ziwei=${ziwei.id}, astrology=${astrology.id}`;
 }
 
-async function smokeAiConsultation() {
+async function smokeAnonymousAiConsultation() {
   const profile = await createAnonymousProfile("smoke-ai");
   const chart = await requestJson("/charts/bazi", {
     method: "POST",
@@ -166,19 +168,49 @@ async function smokeAiConsultation() {
     })
   });
 
-  const streamResponse = await fetchWithTimeout(joinUrl(config.apiBaseUrl, `/consultations/${consultation.id}/stream`), {
-    headers: { Accept: "text/event-stream" }
-  });
-  assert(streamResponse.ok, `AI stream returned HTTP ${streamResponse.status}`);
-  const streamBody = await streamResponse.text();
-  assert(streamBody.includes('"type":"provider"') || /type.+provider/s.test(streamBody), "AI stream did not include a provider status event");
-  assert(streamBody.includes('"section":"factors"') || /section.+factors/s.test(streamBody), "AI stream did not include a chart factors section");
-  assert(streamBody.includes('"type":"done"') || /type.+done/s.test(streamBody), "AI stream did not include a done event");
+  const streamBody = await consumeConsultationStream(consultation.id);
+  assertStreamCompleted(streamBody);
 
   const history = await requestJson(`/consultations/${consultation.id}`);
   assert(history.consultation.status === "completed", `Consultation ended with status ${history.consultation.status}`);
   assert(Array.isArray(history.messages) && history.messages.length >= 2, "Consultation history did not persist user and assistant messages");
   return `consultation=${consultation.id}, messages=${history.messages.length}`;
+}
+
+async function smokeAuthAiConsultation() {
+  const session = await registerSmokeUser();
+  const headers = authHeaders(session.accessToken);
+  const profile = await requestJson("/users/me/profile", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(profileInput("Smoke AI User"))
+  });
+  const chart = await requestJson("/users/me/charts/bazi", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ profileId: profile.id })
+  });
+  const consultation = await requestJson("/users/me/consultations", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      profileId: profile.id,
+      chartId: chart.id,
+      question: "请结合这张已保存命盘，判断近期是否适合推进职业规划？",
+      tone: "strategic"
+    })
+  });
+
+  const streamBody = await consumeConsultationStream(consultation.id);
+  assertStreamCompleted(streamBody);
+
+  const history = await requestJson(`/users/me/consultations/${consultation.id}`, { headers });
+  assert(history.consultation.status === "completed", `User consultation ended with status ${history.consultation.status}`);
+  assert(history.consultation.profileId === profile.id, "User consultation is not linked to the authenticated profile");
+  assert(history.consultation.chartId === chart.id, "User consultation is not linked to the saved Bazi chart");
+  assert(Array.isArray(history.messages) && history.messages.length >= 2, "User consultation history did not persist messages");
+
+  return `user=${session.user.id}, profile=${profile.id}, chart=${chart.id}, consultation=${consultation.id}`;
 }
 
 async function registerSmokeUser() {
@@ -191,6 +223,20 @@ async function registerSmokeUser() {
       displayName: "Smoke User"
     })
   });
+}
+
+async function consumeConsultationStream(consultationId) {
+  const streamResponse = await fetchWithTimeout(joinUrl(config.apiBaseUrl, `/consultations/${consultationId}/stream`), {
+    headers: { Accept: "text/event-stream" }
+  });
+  assert(streamResponse.ok, `AI stream returned HTTP ${streamResponse.status}`);
+  return streamResponse.text();
+}
+
+function assertStreamCompleted(streamBody) {
+  assert(streamBody.includes('"type":"provider"') || /type.+provider/s.test(streamBody), "AI stream did not include a provider status event");
+  assert(streamBody.includes('"section":"factors"') || /section.+factors/s.test(streamBody), "AI stream did not include a chart factors section");
+  assert(streamBody.includes('"type":"done"') || /type.+done/s.test(streamBody), "AI stream did not include a done event");
 }
 
 async function createAnonymousProfile(prefix) {
