@@ -36,6 +36,10 @@ if (!railwayConfig.includes('builder = "DOCKERFILE"')) {
   violations.push('railway.toml must use builder = "DOCKERFILE" so production backend builds from the audited Dockerfile.');
 }
 
+if (/startCommand\s*=\s*".*&&.*"/.test(railwayConfig)) {
+  violations.push("railway.toml startCommand must not chain migration and server startup; use preDeployCommand for migrations.");
+}
+
 if (!dockerfile) {
   violations.push("A root Dockerfile is required for the Railway backend deployment.");
 } else {

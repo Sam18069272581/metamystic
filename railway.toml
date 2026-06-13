@@ -13,7 +13,8 @@ watchPatterns = [
 ]
 
 [deploy]
-startCommand = "corepack pnpm --filter @metamystic/backend prisma:deploy && corepack pnpm --filter @metamystic/backend start"
+preDeployCommand = "pnpm --filter @metamystic/backend prisma:deploy"
+startCommand = "pnpm --filter @metamystic/backend start"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
