@@ -9,6 +9,7 @@ describe("HealthController", () => {
       status: "success",
       data: {
         service: "metamystic-backend",
+        authCookiePolicy: "cross-site",
         ok: true
       }
     });

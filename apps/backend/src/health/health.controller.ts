@@ -4,6 +4,7 @@ import { ok } from "../shared/api-response";
 
 interface HealthPayload {
   service: "metamystic-backend";
+  authCookiePolicy: "cross-site";
   ok: true;
 }
 
@@ -13,6 +14,7 @@ export class HealthController {
   check(): ApiResponse<HealthPayload> {
     return ok({
       service: "metamystic-backend",
+      authCookiePolicy: "cross-site",
       ok: true
     });
   }
