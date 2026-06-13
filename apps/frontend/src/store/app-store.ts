@@ -40,6 +40,7 @@ interface AppState {
 const emptySections: StreamSections = {
   verdict: "",
   logic: "",
+  factors: "",
   advice: "",
   citation: "",
   disclaimer: ""

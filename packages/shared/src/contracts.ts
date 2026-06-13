@@ -2,7 +2,7 @@ export type Gender = "female" | "male" | "non_binary" | "unknown";
 
 export type FiveElement = "wood" | "fire" | "earth" | "metal" | "water";
 
-export type AiSectionType = "verdict" | "logic" | "advice" | "citation" | "disclaimer";
+export type AiSectionType = "verdict" | "logic" | "factors" | "advice" | "citation" | "disclaimer";
 
 export type ConsultationTone = "strategic" | "gentle";
 

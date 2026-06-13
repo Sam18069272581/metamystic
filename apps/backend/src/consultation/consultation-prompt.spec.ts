@@ -40,6 +40,8 @@ describe("buildConsultationPrompt", () => {
     });
 
     expect(prompt.system).toContain("\u5fc5\u987b\u4f18\u5148\u4f7f\u7528\u3010RAG \u77e5\u8bc6\u4f9d\u636e\u3011");
+    expect(prompt.system).toContain("\u547d\u76d8\u89e6\u53d1\u70b9");
+    expect(prompt.system).toContain("\u6bcf\u4e2a\u89e6\u53d1\u70b9\u5fc5\u987b\u8bf4\u660e\u201c\u547d\u76d8\u56e0\u7d20 \u2192 \u5bf9\u95ee\u9898\u7684\u542b\u4e49\u201d");
     expect(prompt.user).toContain("[K1] \u300a\u5b50\u5e73\u771f\u8be0\u300b\u4e49\u7406\u6574\u7406\uff5c\u6740\u5370\u76f8\u751f");
     expect(prompt.user).not.toContain("#pattern-shayin");
     expect(prompt.user).toContain("\u3010\u795e\u715e\u8f85\u52a9\u89e3\u8bfb\u3011");

@@ -123,6 +123,7 @@ async function smokeAiConsultation() {
   assert(streamResponse.ok, `AI stream returned HTTP ${streamResponse.status}`);
   const streamBody = await streamResponse.text();
   assert(streamBody.includes('"type":"provider"') || /type.+provider/s.test(streamBody), "AI stream did not include a provider status event");
+  assert(streamBody.includes('"section":"factors"') || /section.+factors/s.test(streamBody), "AI stream did not include a chart factors section");
   assert(streamBody.includes('"type":"done"') || /type.+done/s.test(streamBody), "AI stream did not include a done event");
 
   const history = await requestJson(`/consultations/${consultation.id}`);

@@ -2,7 +2,7 @@
 
 import type { ConsultationProviderEvent } from "@metamystic/shared";
 import type { StreamSections } from "@/store/app-store";
-import { BookOpenText, BrainCircuit, Lightbulb, RadioTower, ShieldCheck, Sparkles } from "lucide-react";
+import { BookOpenText, BrainCircuit, Lightbulb, RadioTower, ShieldCheck, Sparkles, Target } from "lucide-react";
 import type { ComponentType } from "react";
 import { parseCitationContent } from "./citation-parser";
 import { formatProviderStatus } from "./consultation-provider-status";
@@ -27,6 +27,12 @@ const sectionMeta: Record<
     badge: "\u63a8\u65ad",
     description: "\u57fa\u4e8e\u516b\u5b57\u7ed3\u6784\u7684\u89e3\u91ca\u94fe\u8def",
     Icon: BrainCircuit
+  },
+  factors: {
+    label: "\u547d\u76d8\u89e6\u53d1\u70b9",
+    badge: "\u56e0\u7d20",
+    description: "\u628a\u65e5\u4e3b\u5f3a\u5f31\u3001\u5341\u795e\u3001\u795e\u715e\u4e0e\u95ee\u9898\u7684\u5173\u8054\u62c6\u5f00",
+    Icon: Target
   },
   advice: {
     label: "\u73b0\u5b9e\u5efa\u8bae",
