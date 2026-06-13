@@ -14,22 +14,26 @@ export function parseCitationContent(content: string): ParsedCitation[] {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const parsed = lines
-    .map((line): ParsedCitation | undefined => {
-      const match = citationPattern.exec(line);
-      if (!match) {
-        return undefined;
+  const parsed: ParsedCitation[] = [];
+  for (const line of lines) {
+    const match = citationPattern.exec(line);
+    if (!match) {
+      const previous = parsed.at(-1);
+      if (previous) {
+        previous.content = `${previous.content}\n${line}`;
       }
-      const index = Number(match[1]);
-      return {
-        index,
-        key: match[2]?.trim() ?? `K${index}`,
-        sourceTitle: match[3]?.trim() ?? "\u77e5\u8bc6\u5e93",
-        topicLabel: match[4]?.trim() ?? "\u547d\u7406\u77e5\u8bc6",
-        content: match[5]?.trim() ?? ""
-      };
-    })
-    .filter((citation): citation is ParsedCitation => Boolean(citation));
+      continue;
+    }
+
+    const index = Number(match[1]);
+    parsed.push({
+      index,
+      key: match[2]?.trim() ?? `K${index}`,
+      sourceTitle: match[3]?.trim() ?? "\u77e5\u8bc6\u5e93",
+      topicLabel: match[4]?.trim() ?? "\u547d\u7406\u77e5\u8bc6",
+      content: match[5]?.trim() ?? ""
+    });
+  }
 
   if (parsed.length > 0) {
     return parsed;

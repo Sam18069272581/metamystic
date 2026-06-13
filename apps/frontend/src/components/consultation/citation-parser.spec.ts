@@ -38,4 +38,15 @@ describe("parseCitationContent", () => {
       }
     ]);
   });
+
+  it("keeps continuation lines with the previous parsed citation", () => {
+    const citations = parseCitationContent(
+      "1. [K1] \u300a\u5b50\u5e73\u771f\u8be0\u300b\u4e49\u7406\u6574\u7406\uff5c\u6740\u5370\u76f8\u751f\uff1a\u5148\u770b\u538b\u529b\u5982\u4f55\u8f6c\u4e3a\u5b66\u4e60\u7cfb\u7edf\u3002\n\u7eed\u884c\uff1a\u4e0d\u5efa\u8bae\u628a\u5b83\u89e3\u8bfb\u6210\u7acb\u523b\u91cd\u4ed3\u7684\u4fe1\u53f7\u3002"
+    );
+
+    expect(citations).toHaveLength(1);
+    expect(citations[0]?.content).toBe(
+      "\u5148\u770b\u538b\u529b\u5982\u4f55\u8f6c\u4e3a\u5b66\u4e60\u7cfb\u7edf\u3002\n\u7eed\u884c\uff1a\u4e0d\u5efa\u8bae\u628a\u5b83\u89e3\u8bfb\u6210\u7acb\u523b\u91cd\u4ed3\u7684\u4fe1\u53f7\u3002"
+    );
+  });
 });

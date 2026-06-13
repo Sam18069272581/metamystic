@@ -33,6 +33,10 @@ describe("OpenAiConsultationProvider", () => {
     );
     expect(chunks).toEqual([
       { section: "verdict", content: "适合先验证。" },
+      expect.objectContaining({
+        section: "factors",
+        content: expect.stringContaining("日主 乙 / weak")
+      }),
       { section: "citation", content: "[K1] pattern-shayin" }
     ]);
   });

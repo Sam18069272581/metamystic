@@ -195,7 +195,7 @@ export class OpenAiConsultationProvider implements AiProvider {
       content += event.choices?.[0]?.delta?.content ?? "";
     }
 
-    for (const chunk of parseConsultationResponseSections(content)) {
+    for (const chunk of ensureChartFactorsSection(parseConsultationResponseSections(content), input.chart)) {
       yield chunk;
     }
   }
@@ -260,6 +260,38 @@ function describeProvider(provider: AiProvider, fallbackName: string): { provide
     providerName: provider.providerName ?? fallbackName,
     model: provider.model ?? "unknown"
   };
+}
+
+function ensureChartFactorsSection(chunks: AiProviderChunk[], chart: BaziChartDto): AiProviderChunk[] {
+  if (chunks.some((chunk) => chunk.section === "factors")) {
+    return chunks;
+  }
+
+  const factors: AiProviderChunk = {
+    section: "factors",
+    content: formatDeterministicChartFactors(chart)
+  };
+  const insertIndex = ["advice", "citation", "disclaimer"]
+    .map((section) => chunks.findIndex((chunk) => chunk.section === section))
+    .find((index) => index !== -1);
+  if (insertIndex === undefined) {
+    return [...chunks, factors];
+  }
+  return [...chunks.slice(0, insertIndex), factors, ...chunks.slice(insertIndex)];
+}
+
+function formatDeterministicChartFactors(chart: BaziChartDto): string {
+  const usefulGods = chart.usefulGods?.length ? chart.usefulGods.join("\u3001") : "\u672a\u660e\u786e";
+  const unfavorableGods = chart.unfavorableGods?.length ? chart.unfavorableGods.join("\u3001") : "\u672a\u660e\u786e";
+  const monthTenGod = chart.pillars.month.tenGod;
+  const dayBranch = `${chart.pillars.day.stem}${chart.pillars.day.branch}`;
+
+  return [
+    `\u65e5\u4e3b ${chart.dayMaster} / ${chart.dayMasterStatus} \u2192 \u5224\u65ad\u884c\u52a8\u8282\u594f\u548c\u627f\u538b\u65b9\u5f0f\uff0c\u5efa\u8bae\u5148\u9a8c\u8bc1\u518d\u6269\u5927\u6295\u5165\u3002`,
+    `\u6708\u67f1\u5341\u795e ${monthTenGod} \u2192 \u4ee3\u8868\u95ee\u9898\u80cc\u540e\u7684\u4e3b\u8981\u73af\u5883\u538b\u529b\u6216\u8d44\u6e90\u7c7b\u578b\u3002`,
+    `\u65e5\u652f ${dayBranch} \u2192 \u7528\u6765\u89c2\u5bdf\u4e2a\u4eba\u7a33\u5b9a\u5ea6\u3001\u5173\u7cfb\u652f\u6491\u548c\u73b0\u5b9e\u843d\u70b9\u3002`,
+    `\u559c\u7528 ${usefulGods} / \u5fcc\u795e ${unfavorableGods} \u2192 \u7528\u6765\u533a\u5206\u987a\u52bf\u52a8\u4f5c\u548c\u9700\u8981\u89c4\u907f\u7684\u98ce\u9669\u3002`
+  ].join("\n");
 }
 
 function formatCitationSection(citations: KnowledgeChunkDto[], promptUser: string): string {
