@@ -1,13 +1,16 @@
 import type { AuthUserDto, UserChartArchiveDto, UserProfileListResponse } from "@metamystic/shared";
 
 export type AccountNextStepKind = "loading" | "anonymous" | "needs_profile" | "needs_bazi" | "ready";
+export type AccountNextStepAction = "disabled" | "link" | "create_bazi";
 
 export interface AccountNextStep {
   kind: AccountNextStepKind;
   title: string;
   description: string;
   primaryLabel: string;
+  primaryAction: AccountNextStepAction;
   primaryHref?: string | undefined;
+  profileId?: string | undefined;
   secondaryLabel?: string | undefined;
   secondaryHref?: string | undefined;
   statusLabel: string;
@@ -27,22 +30,24 @@ export function buildAccountNextStep({
   if (loading) {
     return {
       kind: "loading",
-      title: "正在同步登录状态",
-      description: "正在读取你的账户、档案和命盘数据。",
-      primaryLabel: "同步中",
+      title: "\u6b63\u5728\u540c\u6b65\u767b\u5f55\u72b6\u6001",
+      description: "\u6b63\u5728\u8bfb\u53d6\u4f60\u7684\u8d26\u6237\u3001\u6863\u6848\u548c\u547d\u76d8\u6570\u636e\u3002",
+      primaryLabel: "\u540c\u6b65\u4e2d",
+      primaryAction: "disabled",
       primaryHref: undefined,
-      statusLabel: "连接账户"
+      statusLabel: "\u8fde\u63a5\u8d26\u6237"
     };
   }
 
   if (!user) {
     return {
       kind: "anonymous",
-      title: "登录后保存你的命盘",
-      description: "登录后可以保存出生档案、历史命盘、AI 分析和长期记忆。",
-      primaryLabel: "去登录",
+      title: "\u767b\u5f55\u540e\u4fdd\u5b58\u4f60\u7684\u547d\u76d8",
+      description: "\u767b\u5f55\u540e\u53ef\u4ee5\u4fdd\u5b58\u51fa\u751f\u6863\u6848\u3001\u5386\u53f2\u547d\u76d8\u3001AI \u5206\u6790\u548c\u957f\u671f\u8bb0\u5fc6\u3002",
+      primaryLabel: "\u53bb\u767b\u5f55",
+      primaryAction: "link",
       primaryHref: "/auth/login",
-      statusLabel: "未登录"
+      statusLabel: "\u672a\u767b\u5f55"
     };
   }
 
@@ -54,42 +59,55 @@ export function buildAccountNextStep({
     });
     return {
       kind: "ready",
-      title: "可以开始 AI 命理分析",
-      description: `${baziChart.mainPattern} · 日主${baziChart.dayMaster}${strengthText(baziChart.dayMasterStatus)}，可直接进入分析。`,
-      primaryLabel: "开始 AI 命理分析",
+      title: "\u53ef\u4ee5\u5f00\u59cb AI \u547d\u7406\u5206\u6790",
+      description: `${baziChart.mainPattern} \u00b7 \u65e5\u4e3b${baziChart.dayMaster}${strengthText(baziChart.dayMasterStatus)}\uff0c\u53ef\u76f4\u63a5\u8fdb\u5165\u5206\u6790\u3002`,
+      primaryLabel: "\u5f00\u59cb AI \u547d\u7406\u5206\u6790",
+      primaryAction: "link",
       primaryHref: `/consult?${query.toString()}`,
-      secondaryLabel: "查看命盘详情",
+      secondaryLabel: "\u67e5\u770b\u547d\u76d8\u8be6\u60c5",
       secondaryHref: `/me/charts/bazi/${encodeURIComponent(baziChart.id)}`,
-      statusLabel: "命盘已就绪"
+      statusLabel: "\u547d\u76d8\u5df2\u5c31\u7eea"
     };
   }
 
-  const hasProfile = Boolean(archive?.profile) || Boolean(profiles?.profiles.length);
-  if (!hasProfile) {
+  const profileId = resolveProfileId(archive, profiles);
+  if (!profileId) {
     return {
       kind: "needs_profile",
-      title: "先建立出生档案",
-      description: "填写出生年月日时后，才能稳定生成八字、紫微、星盘和每日签语。",
-      primaryLabel: "填写出生信息",
+      title: "\u5148\u5efa\u7acb\u51fa\u751f\u6863\u6848",
+      description: "\u586b\u5199\u51fa\u751f\u5e74\u6708\u65e5\u65f6\u540e\uff0c\u624d\u80fd\u7a33\u5b9a\u751f\u6210\u516b\u5b57\u3001\u7d2b\u5fae\u3001\u661f\u76d8\u548c\u6bcf\u65e5\u7b7e\u8bed\u3002",
+      primaryLabel: "\u586b\u5199\u51fa\u751f\u4fe1\u606f",
+      primaryAction: "link",
       primaryHref: "#profile-form",
-      statusLabel: "已登录"
+      statusLabel: "\u5df2\u767b\u5f55"
     };
   }
 
   return {
     kind: "needs_bazi",
-    title: "生成第一张八字命盘",
-    description: "先完成四柱排盘，再进入 AI 命理分析，结果会更具体。",
-    primaryLabel: "生成八字命盘",
-    primaryHref: "/charts/bazi",
-    statusLabel: "档案已建立"
+    title: "\u751f\u6210\u7b2c\u4e00\u5f20\u516b\u5b57\u547d\u76d8",
+    description: "\u4f7f\u7528\u5df2\u4fdd\u5b58\u7684\u51fa\u751f\u6863\u6848\u76f4\u63a5\u751f\u6210\u56db\u67f1\uff0c\u7136\u540e\u8fdb\u5165 AI \u547d\u7406\u5206\u6790\u3002",
+    primaryLabel: "\u4e00\u952e\u751f\u6210\u516b\u5b57",
+    primaryAction: "create_bazi",
+    profileId,
+    statusLabel: "\u6863\u6848\u5df2\u5efa\u7acb"
   };
+}
+
+function resolveProfileId(
+  archive: UserChartArchiveDto | undefined,
+  profiles: UserProfileListResponse | undefined
+): string | undefined {
+  if (profiles?.defaultProfileId) {
+    return profiles.defaultProfileId;
+  }
+  return archive?.profile?.id ?? profiles?.profiles[0]?.id;
 }
 
 function strengthText(status: "strong" | "balanced" | "weak"): string {
   return {
-    strong: "偏强",
-    balanced: "中和",
-    weak: "偏弱"
+    strong: "\u504f\u5f3a",
+    balanced: "\u4e2d\u548c",
+    weak: "\u504f\u5f31"
   }[status];
 }

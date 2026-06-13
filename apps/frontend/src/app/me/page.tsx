@@ -39,6 +39,7 @@ export default function MePage() {
   const [compatibility, setCompatibility] = useState<CompatibilityReadingDto | undefined>();
   const [compatibilityHistory, setCompatibilityHistory] = useState<CompatibilityReadingDto[]>([]);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [creatingBazi, setCreatingBazi] = useState(false);
   const [readingCompatibility, setReadingCompatibility] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
@@ -122,6 +123,20 @@ export default function MePage() {
     }
   }
 
+  async function handleCreateBaziFromProfile(profileId: string): Promise<void> {
+    setCreatingBazi(true);
+    setError(undefined);
+    try {
+      await apiClient.createMyBaziChart({ profileId });
+      await loadAccount();
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "\u65e0\u6cd5\u751f\u6210\u516b\u5b57\u547d\u76d8");
+    } finally {
+      setCreatingBazi(false);
+      setAccountLoading(false);
+    }
+  }
+
   async function handleCreateCompatibility(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!compatibilityInput.profileAId || !compatibilityInput.profileBId || compatibilityInput.profileAId === compatibilityInput.profileBId) {
@@ -189,7 +204,11 @@ export default function MePage() {
           ) : null}
         </section>
 
-        <AccountNextStepCard step={buildAccountNextStep({ archive, loading: accountLoading, profiles, user })} />
+        <AccountNextStepCard
+          busy={creatingBazi}
+          step={buildAccountNextStep({ archive, loading: accountLoading, profiles, user })}
+          onCreateBazi={handleCreateBaziFromProfile}
+        />
 
         {user ? (
           <>
@@ -366,7 +385,16 @@ export default function MePage() {
   );
 }
 
-function AccountNextStepCard({ step }: { step: AccountNextStep }) {
+function AccountNextStepCard({
+  busy,
+  onCreateBazi,
+  step
+}: {
+  busy: boolean;
+  onCreateBazi: (profileId: string) => Promise<void>;
+  step: AccountNextStep;
+}) {
+  const canCreateBazi = step.primaryAction === "create_bazi" && Boolean(step.profileId);
   return (
     <section className="mystic-card rounded-3xl border-amber-200/15 bg-amber-200/[0.035] p-5">
       <div className="flex items-start justify-between gap-3">
@@ -380,7 +408,17 @@ function AccountNextStepCard({ step }: { step: AccountNextStep }) {
         <Sparkles className="mt-1 h-5 w-5 shrink-0 text-amber-100/70" />
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {step.primaryHref ? (
+        {canCreateBazi ? (
+          <button
+            className="flex items-center justify-center gap-2 rounded-2xl bg-[#6d4bd0] px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-[#7b58df] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={busy}
+            onClick={() => void onCreateBazi(step.profileId as string)}
+            type="button"
+          >
+            {busy ? "\u751f\u6210\u4e2d..." : step.primaryLabel}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        ) : step.primaryHref ? (
           <Link
             href={step.primaryHref}
             className="flex items-center justify-center gap-2 rounded-2xl bg-[#6d4bd0] px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-[#7b58df]"
