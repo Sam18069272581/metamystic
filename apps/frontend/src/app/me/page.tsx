@@ -9,10 +9,12 @@ import type {
   CreateUserProfileRequest,
   ProfileDto,
   UserChartArchiveDto,
+  UserChartKind,
   UserProfileListResponse
 } from "@metamystic/shared";
 import { ArrowRight, CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, LogIn, LogOut, Mail, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
 import { getAccountAuthActions, getAccountLogoutAction } from "./account-auth-actions";
+import { buildAccountChartAction } from "./account-chart-action";
 import { getAccountAuthStatus, type AccountAuthStatus } from "./account-auth-status";
 import { buildAccountNextStep, type AccountNextStep } from "./account-next-step";
 import { ShareButton } from "@/components/share/share-button";
@@ -44,6 +46,7 @@ export default function MePage() {
   const [compatibilityHistory, setCompatibilityHistory] = useState<CompatibilityReadingDto[]>([]);
   const [savingProfile, setSavingProfile] = useState(false);
   const [creatingBazi, setCreatingBazi] = useState(false);
+  const [creatingChartKind, setCreatingChartKind] = useState<UserChartKind | undefined>();
   const [readingCompatibility, setReadingCompatibility] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
@@ -138,6 +141,26 @@ export default function MePage() {
       setError(unknownError instanceof Error ? unknownError.message : "\u65e0\u6cd5\u751f\u6210\u516b\u5b57\u547d\u76d8");
     } finally {
       setCreatingBazi(false);
+      setAccountLoading(false);
+    }
+  }
+
+  async function handleCreateChartFromProfile(kind: UserChartKind, profileId: string): Promise<void> {
+    setCreatingChartKind(kind);
+    setError(undefined);
+    try {
+      if (kind === "bazi") {
+        await apiClient.createMyBaziChart({ profileId });
+      } else if (kind === "ziwei") {
+        await apiClient.createMyZiweiChart({ profileId });
+      } else {
+        await apiClient.createMyAstrologyChart({ profileId });
+      }
+      await loadAccount();
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "无法生成命盘，请稍后重试。");
+    } finally {
+      setCreatingChartKind(undefined);
       setAccountLoading(false);
     }
   }
@@ -392,25 +415,31 @@ export default function MePage() {
           </div>
           <div className="mt-4 space-y-3">
             <ChartRow
-              href={archive?.baziCharts[0] ? `/me/charts/bazi/${archive.baziCharts[0].id}` : "/charts/bazi"}
+              action={buildAccountChartAction({ archive, kind: "bazi" })}
+              busy={creatingChartKind === "bazi"}
               icon={<CalendarDays className="h-4 w-4" />}
               label={"\u516b\u5b57"}
               count={archive?.baziCharts.length ?? 0}
               detail={archive?.baziCharts[0]?.mainPattern}
+              onCreate={(profileId) => void handleCreateChartFromProfile("bazi", profileId)}
             />
             <ChartRow
-              href={archive?.ziweiCharts[0] ? `/me/charts/ziwei/${archive.ziweiCharts[0].id}` : "/charts/ziwei"}
+              action={buildAccountChartAction({ archive, kind: "ziwei" })}
+              busy={creatingChartKind === "ziwei"}
               icon={<CircleDotDashed className="h-4 w-4" />}
               label={"\u7d2b\u5fae"}
               count={archive?.ziweiCharts.length ?? 0}
               detail={archive?.ziweiCharts[0] ? `\u547d\u5bab ${archive.ziweiCharts[0].lifePalace}` : undefined}
+              onCreate={(profileId) => void handleCreateChartFromProfile("ziwei", profileId)}
             />
             <ChartRow
-              href={archive?.astrologyCharts[0] ? `/me/charts/astrology/${archive.astrologyCharts[0].id}` : "/charts/astrology"}
+              action={buildAccountChartAction({ archive, kind: "astrology" })}
+              busy={creatingChartKind === "astrology"}
               icon={<Stars className="h-4 w-4" />}
               label={"\u661f\u76d8"}
               count={archive?.astrologyCharts.length ?? 0}
               detail={archive?.astrologyCharts[0]?.placements.map((placement) => `${placement.label}${placement.sign}`).join(" · ")}
+              onCreate={(profileId) => void handleCreateChartFromProfile("astrology", profileId)}
             />
           </div>
         </section>
@@ -625,32 +654,65 @@ function ProfileRow({
 }
 
 function ChartRow({
+  action,
+  busy,
   count,
   detail,
-  href,
   icon,
-  label
+  label,
+  onCreate
 }: {
+  action: ReturnType<typeof buildAccountChartAction>;
+  busy: boolean;
   count: number;
   detail: string | undefined;
-  href: string;
   icon: React.ReactNode;
   label: string;
+  onCreate: (profileId: string) => void;
 }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3 transition hover:border-amber-200/30"
-    >
+  const content = (
+    <>
       <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-amber-100">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-white/82">{label}</p>
-        <p className="mt-1 truncate text-xs text-white/42">{detail ?? "\u6682\u65e0\u8bb0\u5f55\uff0c\u70b9\u51fb\u751f\u6210"}</p>
+        <p className="mt-1 truncate text-xs text-white/42">{detail ?? action.label}</p>
       </div>
       <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/55">{count}</span>
-    </Link>
+    </>
+  );
+
+  if (action.action === "view") {
+    return (
+      <Link
+        href={action.href}
+        className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3 transition hover:border-amber-200/30"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  if (action.action === "create") {
+    return (
+      <button
+        className="flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3 text-left transition hover:border-amber-200/30 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={busy}
+        onClick={() => onCreate(action.profileId)}
+        type="button"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.025] p-3 opacity-60"
+    >
+      {content}
+    </div>
   );
 }
 
