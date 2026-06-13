@@ -1,9 +1,11 @@
 [build]
-builder = "NIXPACKS"
-buildCommand = "corepack enable && corepack pnpm --filter @metamystic/backend prisma:generate && corepack pnpm --filter @metamystic/backend build"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 watchPatterns = [
   "apps/backend/**",
   "packages/shared/**",
+  "Dockerfile",
+  ".dockerignore",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
