@@ -30,7 +30,7 @@ describe("AuthController Google callback", () => {
     await controller.googleCallback("oauth-code", response as never);
 
     expect(response.setHeader).toHaveBeenCalledWith("Set-Cookie", expect.any(Array));
-    expect(response.redirect).toHaveBeenCalledWith("http://localhost:3000/me");
+    expect(response.redirect).toHaveBeenCalledWith("http://localhost:3000/me?auth=google");
     process.env.FRONTEND_APP_URL = previousUrl;
   });
 
@@ -61,7 +61,7 @@ describe("AuthController Google callback", () => {
 
     await controller.googleCallback("oauth-code", response as never);
 
-    expect(response.redirect).toHaveBeenCalledWith("https://metamystic.app/me");
+    expect(response.redirect).toHaveBeenCalledWith("https://metamystic.app/me?auth=google");
     process.env.FRONTEND_APP_URL = previousUrl;
   });
 });

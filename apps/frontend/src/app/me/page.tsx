@@ -13,6 +13,7 @@ import type {
 } from "@metamystic/shared";
 import { ArrowRight, CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, LogIn, Mail, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
 import { getAccountAuthActions } from "./account-auth-actions";
+import { getAccountAuthStatus, type AccountAuthStatus } from "./account-auth-status";
 import { buildAccountNextStep, type AccountNextStep } from "./account-next-step";
 import { ShareButton } from "@/components/share/share-button";
 import { MobileShell } from "@/components/shell/mobile-shell";
@@ -21,8 +22,10 @@ import { getApiBaseUrl } from "@/lib/public-url";
 
 export default function MePage() {
   const authActions = getAccountAuthActions(getApiBaseUrl(process.env));
+  const [authSource, setAuthSource] = useState<string | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);
   const [user, setUser] = useState<AuthUserDto | undefined>();
+  const authStatus = getAccountAuthStatus(authSource, Boolean(user));
   const [archive, setArchive] = useState<UserChartArchiveDto | undefined>();
   const [profiles, setProfiles] = useState<UserProfileListResponse | undefined>();
   const [form, setForm] = useState<CreateUserProfileRequest>({
@@ -68,6 +71,7 @@ export default function MePage() {
   }
 
   useEffect(() => {
+    setAuthSource(new URLSearchParams(window.location.search).get("auth"));
     async function load(): Promise<void> {
       try {
         await loadAccount();
@@ -180,6 +184,7 @@ export default function MePage() {
               </p>
             </div>
           ) : null}
+          {authStatus && !accountLoading ? <AuthStatusBanner status={authStatus} /> : null}
           {error && !accountLoading ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
           {!user && !accountLoading ? (
             <div className="mt-4 grid grid-cols-2 gap-2">
@@ -382,6 +387,27 @@ export default function MePage() {
         ) : null}
       </div>
     </MobileShell>
+  );
+}
+
+function AuthStatusBanner({ status }: { status: AccountAuthStatus }) {
+  const isWarning = status.tone === "warning";
+  return (
+    <div
+      className={
+        isWarning
+          ? "mt-4 rounded-2xl border border-amber-200/20 bg-amber-200/[0.08] p-3"
+          : "mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-200/[0.08] p-3"
+      }
+    >
+      <div className="flex items-start gap-3">
+        <CheckCircle2 className={isWarning ? "mt-0.5 h-4 w-4 shrink-0 text-amber-200" : "mt-0.5 h-4 w-4 shrink-0 text-emerald-200"} />
+        <div>
+          <p className={isWarning ? "text-sm font-semibold text-amber-100" : "text-sm font-semibold text-emerald-100"}>{status.title}</p>
+          <p className="mt-1 text-xs leading-5 text-white/58">{status.description}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 

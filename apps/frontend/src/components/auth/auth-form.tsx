@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { LogIn, Mail, Sparkles } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { buildGoogleAuthUrl, getApiBaseUrl } from "@/lib/public-url";
+import { getAuthSuccessRedirect } from "./auth-success-redirect";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
+  const router = useRouter();
   const googleAuthUrl = buildGoogleAuthUrl(getApiBaseUrl(process.env));
   const [email, setEmail] = useState("user@example.com");
   const [password, setPassword] = useState("Correct Horse Battery Staple 42!");
@@ -22,6 +25,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           ? await apiClient.register({ email, password, displayName })
           : await apiClient.login({ email, password });
       setMessage(`${session.user.email ?? "\u7528\u6237"} \u5df2\u767b\u5f55`);
+      router.replace(getAuthSuccessRedirect("email"));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "\u8ba4\u8bc1\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002");
     } finally {

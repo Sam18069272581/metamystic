@@ -65,6 +65,6 @@ export class AuthController {
     const profile = await this.googleOAuth.exchangeCode(code);
     const session = await this.authService.loginWithGoogle(profile);
     setAuthCookies(response, session);
-    response.redirect(`${getFrontendAppUrl(process.env)}/me`);
+    response.redirect(`${getFrontendAppUrl(process.env)}/me?auth=google`);
   }
 }

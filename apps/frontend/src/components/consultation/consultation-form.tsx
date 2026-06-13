@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Send } from "lucide-react";
 import type { ConsultationTone, Gender } from "@metamystic/shared";
 import { apiClient } from "@/lib/api-client";
 import { useAppStore } from "@/store/app-store";
+import { buildConsultationFormView } from "./consultation-form-view";
 import { questionTemplateCategories } from "./question-templates";
 
 interface ConsultationFormProps {
@@ -20,6 +21,25 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
   const [question, setQuestion] = useState("\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u53d1\u5c55\u5417\uff1f");
   const store = useAppStore();
   const anonymousUserId = useMemo(() => "local-demo-user", []);
+  const formView = buildConsultationFormView({ initialChartId, initialProfileId });
+  const usingSavedChart = formView.mode === "saved_chart";
+
+  useEffect(() => {
+    if (!initialChartId || !initialProfileId) {
+      return;
+    }
+    void apiClient
+      .getMyChart("bazi", initialChartId)
+      .then((detail) => {
+        if (!("pillars" in detail.chart)) {
+          throw new Error("\u5f53\u524d\u53ea\u652f\u6301\u516b\u5b57\u5386\u53f2\u547d\u76d8\u53d1\u8d77 AI \u89e3\u8bfb\u3002");
+        }
+        store.setChart(detail.chart);
+      })
+      .catch((error: unknown) => {
+        store.setError(error instanceof Error ? error.message : "\u5386\u53f2\u547d\u76d8\u8bfb\u53d6\u5931\u8d25");
+      });
+  }, [initialChartId, initialProfileId]);
 
   async function submit(): Promise<void> {
     store.setLoading(true);
@@ -27,11 +47,10 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
     store.resetStream();
     try {
       const user = await apiClient.me().catch(() => undefined);
-      const existingChart = initialProfileId && initialChartId;
-      if (existingChart && !user) {
+      if (usingSavedChart && !user) {
         throw new Error("\u8bf7\u5148\u767b\u5f55\u540e\u4f7f\u7528\u5386\u53f2\u547d\u76d8\u53d1\u8d77\u54a8\u8be2\u3002");
       }
-      const createdProfile = existingChart
+      const createdProfile = usingSavedChart
         ? undefined
         : user
           ? await apiClient.upsertMyProfile(buildProfileInput())
@@ -39,12 +58,12 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
               anonymousUserId,
               ...buildProfileInput()
             });
-      const profileId = existingChart ? initialProfileId : createdProfile?.id;
+      const profileId = usingSavedChart ? initialProfileId : createdProfile?.id;
       if (!profileId) {
         throw new Error("\u7f3a\u5c11\u547d\u4e3b\u6863\u6848\uff0c\u8bf7\u91cd\u65b0\u8fdb\u5165\u54a8\u8be2\u3002");
       }
-      const chart = existingChart
-        ? await apiClient.getMyChart("bazi", initialChartId).then((detail) => {
+      const chart = usingSavedChart
+        ? await apiClient.getMyChart("bazi", initialChartId as string).then((detail) => {
             if (!("pillars" in detail.chart)) {
               throw new Error("\u5f53\u524d\u53ea\u652f\u6301\u516b\u5b57\u5386\u53f2\u547d\u76d8\u53d1\u8d77 AI \u89e3\u8bfb\u3002");
             }
@@ -63,7 +82,7 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
         question,
         tone
       };
-      const consultation = user || existingChart
+      const consultation = user || usingSavedChart
         ? await apiClient.createMyConsultation(consultationInput)
         : await apiClient.createConsultation(consultationInput);
       store.setConsultation(consultation);
@@ -139,38 +158,46 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
 
   return (
     <section className="mystic-card rounded-3xl p-4">
-      <div className="grid grid-cols-2 gap-3">
-        <label className="text-xs text-white/55">
-          {"\u6635\u79f0"}
-          <input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a850]/50"
-          />
-        </label>
-        <label className="text-xs text-white/55">
-          {"\u6027\u522b"}
-          <select
-            value={gender}
-            onChange={(event) => setGender(event.target.value as Gender)}
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a850]/50"
-          >
-            <option value="female">{"\u5973"}</option>
-            <option value="male">{"\u7537"}</option>
-            <option value="non_binary">{"\u975e\u4e8c\u5143"}</option>
-            <option value="unknown">{"\u4e0d\u900f\u9732"}</option>
-          </select>
-        </label>
+      <div>
+        <p className="gold-text text-lg font-semibold">{formView.title}</p>
+        <p className="mt-2 text-xs leading-5 text-white/48">{formView.description}</p>
       </div>
-      <label className="mt-3 block text-xs text-white/55">
-        {"\u51fa\u751f\u65f6\u95f4"}
-        <input
-          type="datetime-local"
-          value={birthTime}
-          onChange={(event) => setBirthTime(event.target.value)}
-          className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a850]/50"
-        />
-      </label>
+      {formView.showBirthFields ? (
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <label className="text-xs text-white/55">
+              {"\u6635\u79f0"}
+              <input
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a850]/50"
+              />
+            </label>
+            <label className="text-xs text-white/55">
+              {"\u6027\u522b"}
+              <select
+                value={gender}
+                onChange={(event) => setGender(event.target.value as Gender)}
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a850]/50"
+              >
+                <option value="female">{"\u5973"}</option>
+                <option value="male">{"\u7537"}</option>
+                <option value="non_binary">{"\u975e\u4e8c\u5143"}</option>
+                <option value="unknown">{"\u4e0d\u900f\u9732"}</option>
+              </select>
+            </label>
+          </div>
+          <label className="mt-3 block text-xs text-white/55">
+            {"\u51fa\u751f\u65f6\u95f4"}
+            <input
+              type="datetime-local"
+              value={birthTime}
+              onChange={(event) => setBirthTime(event.target.value)}
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a850]/50"
+            />
+          </label>
+        </>
+      ) : null}
       <label className="mt-3 block text-xs text-white/55">
         {"\u5bf9\u8bdd\u98ce\u683c"}
         <select
@@ -224,7 +251,7 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#6d4bd0] px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-[#7b58df] disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Send className="h-4 w-4" />
-        {store.loading ? "\u63a8\u6f14\u4e2d..." : "\u5f00\u59cb AI \u547d\u7406\u5206\u6790"}
+        {store.loading ? "\u63a8\u6f14\u4e2d..." : formView.submitLabel}
       </button>
       {store.error ? <p className="mt-3 text-sm text-rose-300">{store.error}</p> : null}
     </section>
