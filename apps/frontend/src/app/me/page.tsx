@@ -11,8 +11,9 @@ import type {
   UserChartArchiveDto,
   UserProfileListResponse
 } from "@metamystic/shared";
-import { CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, LogIn, Mail, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake, LogIn, Mail, Plus, Sparkles, Stars, UserRound, UsersRound } from "lucide-react";
 import { getAccountAuthActions } from "./account-auth-actions";
+import { buildAccountNextStep, type AccountNextStep } from "./account-next-step";
 import { ShareButton } from "@/components/share/share-button";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
@@ -20,6 +21,7 @@ import { getApiBaseUrl } from "@/lib/public-url";
 
 export default function MePage() {
   const authActions = getAccountAuthActions(getApiBaseUrl(process.env));
+  const [accountLoading, setAccountLoading] = useState(true);
   const [user, setUser] = useState<AuthUserDto | undefined>();
   const [archive, setArchive] = useState<UserChartArchiveDto | undefined>();
   const [profiles, setProfiles] = useState<UserProfileListResponse | undefined>();
@@ -41,6 +43,7 @@ export default function MePage() {
   const [error, setError] = useState<string | undefined>();
 
   async function loadAccount(): Promise<void> {
+    setAccountLoading(true);
     const [nextUser, nextArchive, nextProfiles, nextCompatibilityHistory] = await Promise.all([
       apiClient.me(),
       apiClient.listMyCharts(),
@@ -50,6 +53,7 @@ export default function MePage() {
     setUser(nextUser);
     setArchive(nextArchive);
     setProfiles(nextProfiles);
+    setError(undefined);
     setCompatibilityHistory(nextCompatibilityHistory.readings);
     setCompatibilityInput((current) => {
       if (current.profileAId && current.profileBId) {
@@ -67,7 +71,13 @@ export default function MePage() {
       try {
         await loadAccount();
       } catch (unknownError) {
+        setUser(undefined);
+        setArchive(undefined);
+        setProfiles(undefined);
+        setCompatibilityHistory([]);
         setError(unknownError instanceof Error ? unknownError.message : "\u672a\u767b\u5f55");
+      } finally {
+        setAccountLoading(false);
       }
     }
     void load();
@@ -155,8 +165,8 @@ export default function MePage() {
               </p>
             </div>
           ) : null}
-          {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
-          {!user ? (
+          {error && !accountLoading ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
+          {!user && !accountLoading ? (
             <div className="mt-4 grid grid-cols-2 gap-2">
               {authActions.map((action) => {
                 const Icon = action.variant === "primary" ? LogIn : Mail;
@@ -178,6 +188,11 @@ export default function MePage() {
             </div>
           ) : null}
         </section>
+
+        <AccountNextStepCard step={buildAccountNextStep({ archive, loading: accountLoading, profiles, user })} />
+
+        {user ? (
+          <>
 
         <section className="mystic-card rounded-3xl p-5">
           <div className="flex items-center justify-between gap-3">
@@ -203,7 +218,7 @@ export default function MePage() {
               </p>
             ) : null}
           </div>
-          <form className="mt-4 space-y-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3" onSubmit={handleCreateProfile}>
+          <form id="profile-form" className="mt-4 space-y-3 rounded-2xl border border-white/8 bg-white/[0.035] p-3" onSubmit={handleCreateProfile}>
             <div className="grid grid-cols-2 gap-2">
               <input
                 className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-amber-200/40"
@@ -344,8 +359,50 @@ export default function MePage() {
             />
           </div>
         </section>
+          </>
+        ) : null}
       </div>
     </MobileShell>
+  );
+}
+
+function AccountNextStepCard({ step }: { step: AccountNextStep }) {
+  return (
+    <section className="mystic-card rounded-3xl border-amber-200/15 bg-amber-200/[0.035] p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="rounded-full border border-amber-200/20 bg-amber-200/10 px-3 py-1 text-[11px] font-medium text-amber-100">
+            {step.statusLabel}
+          </span>
+          <h2 className="gold-text mt-3 text-lg font-semibold">{step.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-white/60">{step.description}</p>
+        </div>
+        <Sparkles className="mt-1 h-5 w-5 shrink-0 text-amber-100/70" />
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {step.primaryHref ? (
+          <Link
+            href={step.primaryHref}
+            className="flex items-center justify-center gap-2 rounded-2xl bg-[#6d4bd0] px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-[#7b58df]"
+          >
+            {step.primaryLabel}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-semibold text-white/55">
+            {step.primaryLabel}
+          </div>
+        )}
+        {step.secondaryHref && step.secondaryLabel ? (
+          <Link
+            href={step.secondaryHref}
+            className="flex items-center justify-center gap-2 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/15"
+          >
+            {step.secondaryLabel}
+          </Link>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
