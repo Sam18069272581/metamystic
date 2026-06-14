@@ -11,6 +11,10 @@ describe("public URL helpers", () => {
     expect(getSiteUrl({})).toBe("https://metamystic.vercel.app");
   });
 
+  it("uses the same-origin API proxy by default in production", () => {
+    expect(getApiBaseUrl({ NODE_ENV: "production" })).toBe("/api/v1");
+  });
+
   it("normalizes trailing slashes from configured URLs", () => {
     expect(
       getApiBaseUrl({
