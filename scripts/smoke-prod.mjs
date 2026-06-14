@@ -18,6 +18,7 @@ async function main() {
   await step("anonymous-bazi", "Anonymous profile can create a Bazi chart", smokeAnonymousBazi);
   await step("auth-daily-fortune", "Email auth can create profile, Bazi chart, and daily fortune", smokeAuthDailyFortune);
   await step("auth-chart-archive", "Authenticated users can create and retrieve Bazi, Ziwei, and Astrology charts", smokeAuthChartArchive);
+  await step("profile-memory-privacy", "Profile memory requires the matching anonymous id or authenticated owner", smokeProfileMemoryPrivacy);
   await step("anonymous-history-privacy", "Anonymous consultations require the browser anonymous user id", smokeAnonymousHistoryPrivacy);
   await step("auth-history-privacy", "Authenticated consultations are hidden from public history lookup", smokeAuthHistoryPrivacy);
   if (config.skipAi) {
@@ -229,6 +230,29 @@ async function smokeAnonymousHistoryPrivacy() {
     "Anonymous consultation was streamable without the anonymous user id"
   );
   return `consultation=${consultation.id}`;
+}
+
+async function smokeProfileMemoryPrivacy() {
+  const anonymousProfile = await createAnonymousProfile("smoke-memory");
+  await requestJsonExpectError(`/profiles/${anonymousProfile.id}/memory`, 404);
+  await requestJsonExpectError(`/profiles/${anonymousProfile.id}/memory?anonymousUserId=wrong-anon`, 404);
+  const anonymousMemory = await requestJson(
+    `/profiles/${anonymousProfile.id}/memory?anonymousUserId=${encodeURIComponent(anonymousProfile.anonymousUserId)}`
+  );
+  assert(Array.isArray(anonymousMemory.sources), "Anonymous memory response did not include sources");
+
+  const session = await registerSmokeUser();
+  const headers = authHeaders(session.accessToken);
+  const userProfile = await requestJson("/users/me/profile", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(profileInput("Smoke Memory User"))
+  });
+  await requestJsonExpectError(`/profiles/${userProfile.id}/memory`, 404);
+  const userMemory = await requestJson(`/users/me/profiles/${userProfile.id}/memory`, { headers });
+  assert(Array.isArray(userMemory.sources), "User memory response did not include sources");
+
+  return `anonymousProfile=${anonymousProfile.id}, userProfile=${userProfile.id}`;
 }
 
 async function smokeAnonymousAiConsultation() {

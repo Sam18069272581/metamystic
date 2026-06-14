@@ -264,8 +264,17 @@ export const apiClient = {
     });
   },
 
-  getProfileMemory(profileId: string): Promise<ProfileMemorySignalsDto> {
-    return request<ProfileMemorySignalsDto>(`/profiles/${profileId}/memory`, {
+  getProfileMemory(profileId: string, anonymousUserId: string): Promise<ProfileMemorySignalsDto> {
+    return request<ProfileMemorySignalsDto>(
+      `/profiles/${encodeURIComponent(profileId)}/memory?anonymousUserId=${encodeURIComponent(anonymousUserId)}`,
+      {
+        method: "GET"
+      }
+    );
+  },
+
+  getMyProfileMemory(profileId: string): Promise<ProfileMemorySignalsDto> {
+    return request<ProfileMemorySignalsDto>(`/users/me/profiles/${encodeURIComponent(profileId)}/memory`, {
       method: "GET"
     });
   },

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import type { ApiResponse, ProfileDto, ProfileMemorySignalsDto } from "@metamystic/shared";
 import { ok } from "../shared/api-response";
 import { UpsertProfileDto } from "./dto/upsert-profile.dto";
@@ -14,7 +14,10 @@ export class ProfileController {
   }
 
   @Get(":id/memory")
-  async getMemory(@Param("id") id: string): Promise<ApiResponse<ProfileMemorySignalsDto>> {
-    return ok(await this.profileService.getMemorySignals(id));
+  async getMemory(
+    @Param("id") id: string,
+    @Query("anonymousUserId") anonymousUserId: string | undefined
+  ): Promise<ApiResponse<ProfileMemorySignalsDto>> {
+    return ok(await this.profileService.getAnonymousMemorySignals(id, anonymousUserId));
   }
 }

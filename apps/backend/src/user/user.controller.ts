@@ -10,6 +10,7 @@ import type {
   ConsultationListResponse,
   DailyFortuneDto,
   ProfileDto,
+  ProfileMemorySignalsDto,
   UserChartArchiveDto,
   UserChartDetailDto,
   UserChartKind,
@@ -89,6 +90,14 @@ export class UserController {
     @Param("profileId") profileId: string
   ): Promise<ApiResponse<ProfileDto>> {
     return ok(await this.profileService.setDefaultUserProfile(user.id, profileId));
+  }
+
+  @Get("profiles/:profileId/memory")
+  async getProfileMemory(
+    @CurrentUser() user: AuthUserDto,
+    @Param("profileId") profileId: string
+  ): Promise<ApiResponse<ProfileMemorySignalsDto>> {
+    return ok(await this.profileService.getUserMemorySignals(user.id, profileId));
   }
 
   @Post("charts/bazi")

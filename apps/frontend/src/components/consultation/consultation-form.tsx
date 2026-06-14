@@ -127,8 +127,11 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
                   : "\u54a8\u8be2\u8bb0\u5f55\u8bfb\u53d6\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
               );
             });
-          void apiClient
-            .getProfileMemory(resolvedProfileId)
+          const memoryRequest =
+            historyScope === "user"
+              ? apiClient.getMyProfileMemory(resolvedProfileId)
+              : apiClient.getProfileMemory(resolvedProfileId, anonymousUserId ?? getOrCreateAnonymousUserId());
+          void memoryRequest
             .then((memory) => store.setMemory(memory))
             .catch((error: unknown) => {
               store.setError(

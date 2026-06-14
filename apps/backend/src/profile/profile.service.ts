@@ -128,12 +128,32 @@ export class ProfileService {
     return toProfileDto(profile, "");
   }
 
-  async getMemorySignals(profileId: string): Promise<ProfileMemorySignalsDto> {
-    const profile = await this.prisma.profile.findUnique({
-      where: { id: profileId },
+  async getAnonymousMemorySignals(profileId: string, anonymousUserId: string | undefined): Promise<ProfileMemorySignalsDto> {
+    if (!anonymousUserId) {
+      throw new NotFoundException("Profile not found");
+    }
+    const profile = await this.prisma.profile.findFirst({
+      where: {
+        id: profileId,
+        user: { anonymousUserId, email: null }
+      },
       select: { memorySignals: true }
     });
-    return normalizeMemorySignals(profile?.memorySignals);
+    if (!profile) {
+      throw new NotFoundException("Profile not found");
+    }
+    return normalizeMemorySignals(profile.memorySignals);
+  }
+
+  async getUserMemorySignals(userId: string, profileId: string): Promise<ProfileMemorySignalsDto> {
+    const profile = await this.prisma.profile.findFirst({
+      where: { id: profileId, userId },
+      select: { memorySignals: true }
+    });
+    if (!profile) {
+      throw new NotFoundException("Profile not found");
+    }
+    return normalizeMemorySignals(profile.memorySignals);
   }
 
   async rememberCompletedConsultation(input: RememberCompletedConsultationInput): Promise<ProfileMemorySignalsDto> {

@@ -1,7 +1,70 @@
+import { NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { ProfileService } from "./profile.service";
 
 describe("ProfileService memory", () => {
+  it("returns anonymous memory only for the matching anonymous user id", async () => {
+    const prisma = {
+      profile: {
+        findFirst: vi.fn().mockResolvedValue({
+          memorySignals: {
+            decisionTopics: ["\u6d77\u5916\u53d1\u5c55"],
+            riskStyle: "\u7a33\u5065\u8bd5\u63a2",
+            preferredTone: "\u7406\u6027\u7b56\u7565",
+            sources: ["consult-1"]
+          }
+        })
+      }
+    };
+    const service = new ProfileService(prisma as never);
+
+    const memory = await service.getAnonymousMemorySignals("profile-1", "anon-1");
+
+    expect(prisma.profile.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "profile-1",
+        user: { anonymousUserId: "anon-1", email: null }
+      },
+      select: { memorySignals: true }
+    });
+    expect(memory.decisionTopics).toEqual(["\u6d77\u5916\u53d1\u5c55"]);
+  });
+
+  it("hides anonymous memory when the anonymous user id is missing or mismatched", async () => {
+    const service = new ProfileService({
+      profile: {
+        findFirst: vi.fn().mockResolvedValue(null)
+      }
+    } as never);
+
+    await expect(service.getAnonymousMemorySignals("profile-1", undefined)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getAnonymousMemorySignals("profile-1", "wrong-anon")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("returns user memory only for a profile owned by the current user", async () => {
+    const prisma = {
+      profile: {
+        findFirst: vi.fn().mockResolvedValue({
+          memorySignals: {
+            decisionTopics: ["\u804c\u4e1a\u53d1\u5c55"],
+            riskStyle: "\u5148\u9a8c\u8bc1",
+            preferredTone: "\u7406\u6027\u7b56\u7565",
+            sources: ["consult-2"]
+          }
+        })
+      }
+    };
+    const service = new ProfileService(prisma as never);
+
+    const memory = await service.getUserMemorySignals("user-1", "profile-1");
+
+    expect(prisma.profile.findFirst).toHaveBeenCalledWith({
+      where: { id: "profile-1", userId: "user-1" },
+      select: { memorySignals: true }
+    });
+    expect(memory.sources).toEqual(["consult-2"]);
+  });
+
   it("stores merged memory signals for a completed consultation", async () => {
     const prisma = {
       profile: {

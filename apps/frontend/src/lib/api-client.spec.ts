@@ -102,7 +102,7 @@ describe("apiClient", () => {
     );
   });
 
-  it("fetches profile memory signals", async () => {
+  it("fetches anonymous profile memory signals with the browser anonymous user id", async () => {
     mockSuccess({
       decisionTopics: ["海外发展"],
       riskStyle: "稳健试探",
@@ -110,12 +110,29 @@ describe("apiClient", () => {
       sources: ["consult-1"]
     });
 
-    const memory = await apiClient.getProfileMemory("profile-1");
+    const memory = await apiClient.getProfileMemory("profile-1", "anon-1");
 
     expect(memory.decisionTopics).toEqual(["海外发展"]);
     expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:4000/api/v1/profiles/profile-1/memory",
+      "http://localhost:4000/api/v1/profiles/profile-1/memory?anonymousUserId=anon-1",
       expect.objectContaining({ method: "GET" })
+    );
+  });
+
+  it("fetches current-user profile memory through authenticated APIs", async () => {
+    mockSuccess({
+      decisionTopics: ["career"],
+      riskStyle: "steady",
+      preferredTone: "strategic",
+      sources: ["consult-2"]
+    });
+
+    const memory = await apiClient.getMyProfileMemory("profile-1");
+
+    expect(memory.sources).toEqual(["consult-2"]);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/profiles/profile-1/memory",
+      expect.objectContaining({ method: "GET", credentials: "include" })
     );
   });
 
