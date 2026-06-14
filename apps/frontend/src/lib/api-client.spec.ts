@@ -351,6 +351,31 @@ describe("apiClient", () => {
     );
   });
 
+  it("lists current-user consultations for a profile through authenticated APIs", async () => {
+    mockSuccess({
+      profileId: "profile-1",
+      consultations: [
+        {
+          id: "consult-1",
+          profileId: "profile-1",
+          chartId: "chart-1",
+          question: "\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u5417\uff1f",
+          tone: "strategic",
+          status: "completed",
+          createdAt: "2026-06-02T00:00:00.000Z"
+        }
+      ]
+    });
+
+    const response = await apiClient.listMyProfileConsultations("profile-1");
+
+    expect(response.consultations).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/consultations?profileId=profile-1",
+      expect.objectContaining({ method: "GET", credentials: "include" })
+    );
+  });
+
   it("surfaces a readable HTTP status when the backend returns a non-JSON error page", async () => {
     vi.stubGlobal(
       "fetch",

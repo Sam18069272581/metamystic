@@ -149,12 +149,28 @@ export class ConsultationService {
   }
 
   async listRecentByProfile(profileId: string, take = 10): Promise<ConsultationListResponse> {
+    void take;
+    return this.toConsultationList(profileId, []);
+  }
+
+  async listUserRecentByProfile(userId: string, profileId: string, take = 10): Promise<ConsultationListResponse> {
+    const profile = await this.prisma.profile.findFirst({
+      where: { id: profileId, userId },
+      select: { id: true }
+    });
+    if (!profile) {
+      throw new NotFoundException("Profile not found");
+    }
     const consultations = await this.prisma.consultation.findMany({
-      where: { profileId },
+      where: { profileId, userId },
       orderBy: { createdAt: "desc" },
       take
     });
 
+    return this.toConsultationList(profileId, consultations);
+  }
+
+  private toConsultationList(profileId: string, consultations: ConsultationRecord[]): ConsultationListResponse {
     return {
       profileId,
       consultations: consultations.map((consultation: ConsultationRecord) => this.toConsultationDto(consultation))

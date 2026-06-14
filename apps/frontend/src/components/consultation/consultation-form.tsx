@@ -122,8 +122,11 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
                     : "\u8bb0\u5fc6\u8bfb\u53d6\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
                 );
               });
-            void apiClient
-              .listProfileConsultations(profileId)
+            const consultationsRequest =
+              historyScope === "user"
+                ? apiClient.listMyProfileConsultations(profileId)
+                : apiClient.listProfileConsultations(profileId);
+            void consultationsRequest
               .then((response) => store.setConsultations(response.consultations))
               .catch((error: unknown) => {
                 store.setError(

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import type {
   ApiResponse,
   AstrologyChartDto,
@@ -6,6 +6,7 @@ import type {
   BaziChartDto,
   ConsultationDto,
   ConsultationHistoryDto,
+  ConsultationListResponse,
   DailyFortuneDto,
   ProfileDto,
   UserChartArchiveDto,
@@ -102,6 +103,14 @@ export class UserController {
     @Body() dto: CreateConsultationDto
   ): Promise<ApiResponse<ConsultationDto>> {
     return ok(await this.consultationService.createUserConsultation(user.id, dto));
+  }
+
+  @Get("consultations")
+  async listConsultations(
+    @CurrentUser() user: AuthUserDto,
+    @Query("profileId") profileId: string
+  ): Promise<ApiResponse<ConsultationListResponse>> {
+    return ok(await this.consultationService.listUserRecentByProfile(user.id, profileId));
   }
 
   @Get("consultations/:id")

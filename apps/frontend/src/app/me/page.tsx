@@ -16,6 +16,7 @@ import { ArrowRight, CalendarDays, CheckCircle2, CircleDotDashed, HeartHandshake
 import { getAccountAuthActions, getAccountLogoutAction } from "./account-auth-actions";
 import { buildAccountChartAction } from "./account-chart-action";
 import { getAccountAuthStatus, type AccountAuthStatus } from "./account-auth-status";
+import { loadAccountData } from "./account-load";
 import { buildAccountNextStep, type AccountNextStep } from "./account-next-step";
 import { ShareButton } from "@/components/share/share-button";
 import { MobileShell } from "@/components/shell/mobile-shell";
@@ -52,24 +53,19 @@ export default function MePage() {
 
   async function loadAccount(): Promise<void> {
     setAccountLoading(true);
-    const [nextUser, nextArchive, nextProfiles, nextCompatibilityHistory] = await Promise.all([
-      apiClient.me(),
-      apiClient.listMyCharts(),
-      apiClient.listMyProfiles(),
-      apiClient.listMyCompatibilityReadings()
-    ]);
-    setUser(nextUser);
-    setArchive(nextArchive);
-    setProfiles(nextProfiles);
-    setError(undefined);
-    setCompatibilityHistory(nextCompatibilityHistory.readings);
+    const account = await loadAccountData(apiClient);
+    setUser(account.user);
+    setArchive(account.archive);
+    setProfiles(account.profiles);
+    setError(account.error);
+    setCompatibilityHistory(account.compatibilityHistory);
     setCompatibilityInput((current) => {
       if (current.profileAId && current.profileBId) {
         return current;
       }
       return {
-        profileAId: nextProfiles.profiles[0]?.id ?? "",
-        profileBId: nextProfiles.profiles[1]?.id ?? ""
+        profileAId: account.profiles?.profiles[0]?.id ?? "",
+        profileBId: account.profiles?.profiles[1]?.id ?? ""
       };
     });
   }

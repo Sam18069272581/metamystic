@@ -178,6 +178,16 @@ async function smokeAuthHistoryPrivacy() {
   });
 
   await requestJsonExpectError(`/consultations/${consultation.id}`, 404);
+  const publicList = await requestJson(`/consultations?profileId=${encodeURIComponent(profile.id)}`);
+  assert(
+    !publicList.consultations.some((item) => item.id === consultation.id),
+    "Authenticated consultation was visible in the public profile consultation list"
+  );
+  const userList = await requestJson(`/users/me/consultations?profileId=${encodeURIComponent(profile.id)}`, { headers });
+  assert(
+    userList.consultations.some((item) => item.id === consultation.id),
+    "Authenticated consultation was missing from the user profile consultation list"
+  );
   const userHistory = await requestJson(`/users/me/consultations/${consultation.id}`, { headers });
   assert(userHistory.consultation.id === consultation.id, "Authenticated history lookup returned the wrong consultation");
   assert(userHistory.consultation.chartId === chart.id, "Authenticated history lookup returned the wrong chart");

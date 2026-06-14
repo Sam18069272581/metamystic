@@ -273,6 +273,12 @@ export const apiClient = {
     });
   },
 
+  listMyProfileConsultations(profileId: string): Promise<ConsultationListResponse> {
+    return request<ConsultationListResponse>(`/users/me/consultations?profileId=${encodeURIComponent(profileId)}`, {
+      method: "GET"
+    });
+  },
+
   streamConsultation(
     consultationId: string,
     onEvent: (event: ConsultationStreamEvent) => void,
