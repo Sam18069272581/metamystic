@@ -284,30 +284,57 @@ export const apiClient = {
     onEvent: (event: ConsultationStreamEvent) => void,
     onError: (message: string) => void
   ): () => void {
-    const source = new EventSource(`${API_BASE_URL}/consultations/${consultationId}/stream`);
-    let closedByClient = false;
-    source.onmessage = (message) => {
-      try {
-        const event = JSON.parse(message.data) as ConsultationStreamEvent;
-        onEvent(event);
-        if (event.type === "done" || event.type === "error") {
-          closedByClient = true;
-          source.close();
-        }
-      } catch {
-        onError("\u65e0\u6cd5\u89e3\u6790 AI \u6d41\u5f0f\u54cd\u5e94\u3002");
-      }
-    };
-    source.onerror = () => {
-      if (closedByClient || source.readyState === EventSource.CLOSED) {
-        return;
-      }
-      onError("AI \u6d41\u5f0f\u8fde\u63a5\u4e2d\u65ad\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002");
-      source.close();
-    };
-    return () => {
-      closedByClient = true;
-      source.close();
-    };
+    return openConsultationStream(
+      `/consultations/${encodeURIComponent(consultationId)}/stream`,
+      onEvent,
+      onError
+    );
+  },
+
+  streamMyConsultation(
+    consultationId: string,
+    onEvent: (event: ConsultationStreamEvent) => void,
+    onError: (message: string) => void
+  ): () => void {
+    return openConsultationStream(
+      `/users/me/consultations/${encodeURIComponent(consultationId)}/stream`,
+      onEvent,
+      onError,
+      { withCredentials: true }
+    );
   }
 };
+
+function openConsultationStream(
+  path: string,
+  onEvent: (event: ConsultationStreamEvent) => void,
+  onError: (message: string) => void,
+  init?: EventSourceInit
+): () => void {
+  const url = `${API_BASE_URL}${path}`;
+  const source = init ? new EventSource(url, init) : new EventSource(url);
+  let closedByClient = false;
+  source.onmessage = (message) => {
+    try {
+      const event = JSON.parse(message.data) as ConsultationStreamEvent;
+      onEvent(event);
+      if (event.type === "done" || event.type === "error") {
+        closedByClient = true;
+        source.close();
+      }
+    } catch {
+      onError("\u65e0\u6cd5\u89e3\u6790 AI \u6d41\u5f0f\u54cd\u5e94\u3002");
+    }
+  };
+  source.onerror = () => {
+    if (closedByClient || source.readyState === EventSource.CLOSED) {
+      return;
+    }
+    onError("AI \u6d41\u5f0f\u8fde\u63a5\u4e2d\u65ad\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002");
+    source.close();
+  };
+  return () => {
+    closedByClient = true;
+    source.close();
+  };
+}

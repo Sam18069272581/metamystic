@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, Sse, UseGuards } from "@nestjs/common";
+import type { MessageEvent } from "@nestjs/common";
 import type {
   ApiResponse,
   AstrologyChartDto,
@@ -15,6 +16,7 @@ import type {
   UserProfileListResponse,
   ZiweiChartDto
 } from "@metamystic/shared";
+import { Observable } from "rxjs";
 import { AstrologyService } from "../astrology/astrology.service";
 import { BaziService } from "../bazi/bazi.service";
 import { ConsultationService } from "../consultation/consultation.service";
@@ -119,6 +121,14 @@ export class UserController {
     @Param("id") id: string
   ): Promise<ApiResponse<ConsultationHistoryDto>> {
     return ok(await this.consultationService.getUserHistory(user.id, id));
+  }
+
+  @Sse("consultations/:id/stream")
+  streamConsultation(
+    @CurrentUser() user: AuthUserDto,
+    @Param("id") id: string
+  ): Observable<MessageEvent> {
+    return this.consultationService.streamUserConsultation(user.id, id);
   }
 
   @Post("charts/ziwei")

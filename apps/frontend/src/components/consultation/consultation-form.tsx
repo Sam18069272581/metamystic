@@ -88,7 +88,8 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
         : await apiClient.createConsultation(consultationInput);
       const historyScope = getConsultationHistoryScope({ hasUser: Boolean(user), usingSavedChart });
       store.setConsultation(consultation);
-      apiClient.streamConsultation(
+      const stream = historyScope === "user" ? apiClient.streamMyConsultation : apiClient.streamConsultation;
+      stream(
         consultation.id,
         (event) => {
           if (event.type === "chunk") {

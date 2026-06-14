@@ -32,7 +32,7 @@ describe("ConsultationService memory integration", () => {
     };
     const prisma = {
       consultation: {
-        findUnique: vi.fn().mockResolvedValue(consultation),
+        findFirst: vi.fn().mockResolvedValue(consultation),
         update: vi.fn().mockResolvedValue({})
       },
       consultationMessage: {
@@ -63,7 +63,7 @@ describe("ConsultationService memory integration", () => {
     );
 
     await new Promise<void>((resolve, reject) => {
-      service.streamConsultation("consult-1").subscribe({
+      service.streamUserConsultation("user-1", "consult-1").subscribe({
         complete: resolve,
         error: reject
       });

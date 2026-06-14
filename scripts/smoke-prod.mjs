@@ -191,6 +191,11 @@ async function smokeAuthHistoryPrivacy() {
   const userHistory = await requestJson(`/users/me/consultations/${consultation.id}`, { headers });
   assert(userHistory.consultation.id === consultation.id, "Authenticated history lookup returned the wrong consultation");
   assert(userHistory.consultation.chartId === chart.id, "Authenticated history lookup returned the wrong chart");
+  const publicStreamBody = await consumeConsultationStream(consultation.id);
+  assert(
+    publicStreamBody.includes("Consultation not found") && !publicStreamBody.includes('"type":"done"'),
+    "Authenticated consultation was streamable through the public endpoint"
+  );
   return `consultation=${consultation.id}`;
 }
 
@@ -243,7 +248,10 @@ async function smokeAuthAiConsultation() {
     })
   });
 
-  const streamBody = await consumeConsultationStream(consultation.id);
+  const streamBody = await consumeConsultationStream(consultation.id, {
+    path: `/users/me/consultations/${consultation.id}/stream`,
+    headers
+  });
   assertStreamCompleted(streamBody);
 
   const history = await requestJson(`/users/me/consultations/${consultation.id}`, { headers });
@@ -267,9 +275,13 @@ async function registerSmokeUser() {
   });
 }
 
-async function consumeConsultationStream(consultationId) {
-  const streamResponse = await fetchWithTimeout(joinUrl(config.apiBaseUrl, `/consultations/${consultationId}/stream`), {
-    headers: { Accept: "text/event-stream" }
+async function consumeConsultationStream(consultationId, options = {}) {
+  const path = options.path ?? `/consultations/${consultationId}/stream`;
+  const streamResponse = await fetchWithTimeout(joinUrl(config.apiBaseUrl, path), {
+    headers: {
+      Accept: "text/event-stream",
+      ...(options.headers ?? {})
+    }
   });
   assert(streamResponse.ok, `AI stream returned HTTP ${streamResponse.status}`);
   return streamResponse.text();

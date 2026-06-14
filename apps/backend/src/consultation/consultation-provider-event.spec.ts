@@ -33,7 +33,7 @@ describe("ConsultationService provider stream events", () => {
     };
     const prisma = {
       consultation: {
-        findUnique: vi.fn().mockResolvedValue(consultation),
+        findFirst: vi.fn().mockResolvedValue(consultation),
         update: vi.fn().mockResolvedValue({})
       },
       consultationMessage: {
@@ -72,7 +72,7 @@ describe("ConsultationService provider stream events", () => {
     const events: MessageEvent[] = [];
 
     await new Promise<void>((resolve, reject) => {
-      service.streamConsultation("consult-1").subscribe({
+      service.streamUserConsultation("user-1", "consult-1").subscribe({
         next: (event) => events.push(event),
         complete: resolve,
         error: reject

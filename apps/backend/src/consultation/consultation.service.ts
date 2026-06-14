@@ -26,6 +26,7 @@ interface ConsultationMessageRecord {
 
 interface ConsultationRecord {
   id: string;
+  userId?: string;
   profileId: string;
   chartId: string;
   question: string;
@@ -33,6 +34,24 @@ interface ConsultationRecord {
   status: "pending" | "streaming" | "completed" | "failed";
   summary: string | null;
   createdAt: Date;
+}
+
+interface ConsultationStreamRecord extends ConsultationRecord {
+  chart: {
+    id: string;
+    profileId: string;
+    dayMaster: string;
+    dayMasterStatus: string;
+    mainPattern: string;
+    pillars: unknown;
+    elements: unknown;
+    metadata?: unknown;
+    createdAt: Date;
+  };
+  user?: {
+    anonymousUserId: string | null;
+    email: string | null;
+  };
 }
 
 @Injectable()
@@ -178,8 +197,40 @@ export class ConsultationService {
   }
 
   streamConsultation(id: string): Observable<MessageEvent> {
+    return this.streamConsultationRecord(id, async () => {
+      const consultation = await this.prisma.consultation.findUnique({
+        where: { id },
+        include: {
+          chart: true,
+          user: { select: { anonymousUserId: true, email: true } }
+        }
+      });
+      if (!consultation || !isPublicStreamOwner(consultation.user)) {
+        throw new NotFoundException("Consultation not found");
+      }
+      return consultation;
+    });
+  }
+
+  streamUserConsultation(userId: string, id: string): Observable<MessageEvent> {
+    return this.streamConsultationRecord(id, async () => {
+      const consultation = await this.prisma.consultation.findFirst({
+        where: { id, userId },
+        include: { chart: true }
+      });
+      if (!consultation) {
+        throw new NotFoundException("Consultation not found");
+      }
+      return consultation;
+    });
+  }
+
+  private streamConsultationRecord(
+    id: string,
+    loadConsultation: () => Promise<ConsultationStreamRecord>
+  ): Observable<MessageEvent> {
     return new Observable((subscriber) => {
-      void this.runStream(id, (event) => subscriber.next({ data: event })).then(
+      void this.runStream(id, loadConsultation, (event) => subscriber.next({ data: event })).then(
         () => subscriber.complete(),
         (error: unknown) => {
           subscriber.next({
@@ -197,15 +248,10 @@ export class ConsultationService {
 
   private async runStream(
     id: string,
+    loadConsultation: () => Promise<ConsultationStreamRecord>,
     emit: (event: ConsultationStreamEvent) => void
   ): Promise<void> {
-    const consultation = await this.prisma.consultation.findUnique({
-      where: { id },
-      include: { chart: true }
-    });
-    if (!consultation) {
-      throw new NotFoundException("Consultation not found");
-    }
+    const consultation = await loadConsultation();
 
     await this.prisma.consultation.update({
       where: { id },
@@ -346,4 +392,8 @@ export class ConsultationService {
 
 function isAiProviderStatusEvent(event: unknown): event is AiProviderStatusEvent {
   return Boolean(event && typeof event === "object" && "type" in event && event.type === "provider");
+}
+
+function isPublicStreamOwner(user: { anonymousUserId: string | null; email: string | null } | undefined): boolean {
+  return Boolean(user?.anonymousUserId) && !user?.email;
 }

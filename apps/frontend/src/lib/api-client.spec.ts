@@ -376,6 +376,37 @@ describe("apiClient", () => {
     );
   });
 
+  it("opens public consultation streams through the public endpoint", () => {
+    const close = vi.fn();
+    const eventSource = vi.fn(function EventSourceMock() {
+      return { close, readyState: 0 };
+    });
+    vi.stubGlobal("EventSource", eventSource);
+
+    const cleanup = apiClient.streamConsultation("consult-1", vi.fn(), vi.fn());
+
+    expect(eventSource).toHaveBeenCalledWith("http://localhost:4000/api/v1/consultations/consult-1/stream");
+    cleanup();
+    expect(close).toHaveBeenCalled();
+  });
+
+  it("opens current-user consultation streams through the authenticated endpoint with cookies", () => {
+    const close = vi.fn();
+    const eventSource = vi.fn(function EventSourceMock() {
+      return { close, readyState: 0 };
+    });
+    vi.stubGlobal("EventSource", eventSource);
+
+    const cleanup = apiClient.streamMyConsultation("consult-1", vi.fn(), vi.fn());
+
+    expect(eventSource).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/users/me/consultations/consult-1/stream",
+      { withCredentials: true }
+    );
+    cleanup();
+    expect(close).toHaveBeenCalled();
+  });
+
   it("surfaces a readable HTTP status when the backend returns a non-JSON error page", async () => {
     vi.stubGlobal(
       "fetch",
