@@ -13,7 +13,7 @@ const sensitiveBuildVariables = [
   "GOOGLE_CLIENT_SECRET"
 ];
 
-export function verifyRepoConfig({ rootPackage, vercelConfig, railwayConfig, dockerfile }) {
+export function verifyRepoConfig({ rootPackage, vercelConfig, railwayConfig, dockerfile, migrationSql = "" }) {
   const violations = [];
 
   for (const section of dependencySections) {
@@ -58,6 +58,13 @@ export function verifyRepoConfig({ rootPackage, vercelConfig, railwayConfig, doc
     }
   }
 
+  if (
+    migrationSql.includes('CREATE UNIQUE INDEX "Profile_userId_key" ON "Profile"("userId")') &&
+    !migrationSql.includes('DROP INDEX IF EXISTS "Profile_userId_key"')
+  ) {
+    violations.push('Profile_userId_key is a unique index; migrations must drop it with DROP INDEX IF EXISTS "Profile_userId_key".');
+  }
+
   return violations;
 }
 
@@ -66,7 +73,8 @@ async function main() {
   const vercelConfig = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
   const railwayConfig = await readTextFile("../railway.toml");
   const dockerfile = await readTextFile("../Dockerfile");
-  const violations = verifyRepoConfig({ rootPackage, vercelConfig, railwayConfig, dockerfile });
+  const migrationSql = await readMigrationSql();
+  const violations = verifyRepoConfig({ rootPackage, vercelConfig, railwayConfig, dockerfile, migrationSql });
 
   if (violations.length > 0) {
     console.error("Repository configuration check failed:");
@@ -92,4 +100,35 @@ async function readTextFile(relativePath) {
     }
     throw error;
   }
+}
+
+async function readMigrationSql() {
+  const { readdir } = await import("node:fs/promises");
+  const migrationsDirectory = new URL("../apps/backend/prisma/migrations/", import.meta.url);
+  let migrationDirectories;
+  try {
+    migrationDirectories = await readdir(migrationsDirectory, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return "";
+    }
+    throw error;
+  }
+
+  const files = migrationDirectories
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => new URL(`${entry.name}/migration.sql`, migrationsDirectory));
+  const contents = await Promise.all(
+    files.map(async (fileUrl) => {
+      try {
+        return await readFile(fileUrl, "utf8");
+      } catch (error) {
+        if (error?.code === "ENOENT") {
+          return "";
+        }
+        throw error;
+      }
+    })
+  );
+  return contents.join("\n");
 }

@@ -22,6 +22,10 @@ startCommand = "pnpm --filter @metamystic/backend start"
   dockerfile: `
 FROM node:20-slim
 CMD ["pnpm", "--filter", "@metamystic/backend", "start"]
+`,
+  migrationSql: `
+CREATE UNIQUE INDEX "Profile_userId_key" ON "Profile"("userId");
+DROP INDEX IF EXISTS "Profile_userId_key";
 `
 };
 
@@ -40,5 +44,19 @@ CMD ["sh", "-c", "pnpm --filter @metamystic/backend prisma:deploy && pnpm --filt
 
   assert(
     violations.includes("Dockerfile CMD must not chain Prisma migrations and server startup; use Railway preDeployCommand for migrations.")
+  );
+});
+
+test("flags profile migrations that try to drop a unique index as a table constraint", () => {
+  const violations = verifyRepoConfig({
+    ...validConfig,
+    migrationSql: `
+CREATE UNIQUE INDEX "Profile_userId_key" ON "Profile"("userId");
+ALTER TABLE "Profile" DROP CONSTRAINT IF EXISTS "Profile_userId_key";
+`
+  });
+
+  assert(
+    violations.includes('Profile_userId_key is a unique index; migrations must drop it with DROP INDEX IF EXISTS "Profile_userId_key".')
   );
 });
