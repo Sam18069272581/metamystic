@@ -78,7 +78,7 @@ describe("apiClient", () => {
   it("uses readable Chinese messages for network failures", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
 
-    await expect(apiClient.getConsultationHistory("consult-1")).rejects.toThrow("无法连接后端 API");
+    await expect(apiClient.getConsultationHistory("consult-1", "anon-1")).rejects.toThrow("无法连接后端 API");
   });
 
   it("registers with email auth", async () => {
@@ -351,6 +351,29 @@ describe("apiClient", () => {
     );
   });
 
+  it("fetches anonymous consultation history with the browser anonymous user id", async () => {
+    mockSuccess({
+      consultation: {
+        id: "consult-1",
+        profileId: "profile-1",
+        chartId: "chart-1",
+        question: "\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u5417\uff1f",
+        tone: "strategic",
+        status: "completed",
+        createdAt: "2026-06-02T00:00:00.000Z"
+      },
+      messages: []
+    });
+
+    const history = await apiClient.getConsultationHistory("consult-1", "anon-1");
+
+    expect(history.consultation.id).toBe("consult-1");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:4000/api/v1/consultations/consult-1?anonymousUserId=anon-1",
+      expect.objectContaining({ method: "GET", credentials: "include" })
+    );
+  });
+
   it("lists current-user consultations for a profile through authenticated APIs", async () => {
     mockSuccess({
       profileId: "profile-1",
@@ -383,9 +406,9 @@ describe("apiClient", () => {
     });
     vi.stubGlobal("EventSource", eventSource);
 
-    const cleanup = apiClient.streamConsultation("consult-1", vi.fn(), vi.fn());
+    const cleanup = apiClient.streamConsultation("consult-1", "anon-1", vi.fn(), vi.fn());
 
-    expect(eventSource).toHaveBeenCalledWith("http://localhost:4000/api/v1/consultations/consult-1/stream");
+    expect(eventSource).toHaveBeenCalledWith("http://localhost:4000/api/v1/consultations/consult-1/stream?anonymousUserId=anon-1");
     cleanup();
     expect(close).toHaveBeenCalled();
   });

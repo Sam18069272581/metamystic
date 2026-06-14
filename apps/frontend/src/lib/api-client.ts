@@ -249,10 +249,13 @@ export const apiClient = {
     });
   },
 
-  getConsultationHistory(consultationId: string): Promise<ConsultationHistoryDto> {
-    return request<ConsultationHistoryDto>(`/consultations/${consultationId}`, {
+  getConsultationHistory(consultationId: string, anonymousUserId: string): Promise<ConsultationHistoryDto> {
+    return request<ConsultationHistoryDto>(
+      `/consultations/${encodeURIComponent(consultationId)}?anonymousUserId=${encodeURIComponent(anonymousUserId)}`,
+      {
       method: "GET"
-    });
+      }
+    );
   },
 
   getMyConsultationHistory(consultationId: string): Promise<ConsultationHistoryDto> {
@@ -281,11 +284,12 @@ export const apiClient = {
 
   streamConsultation(
     consultationId: string,
+    anonymousUserId: string,
     onEvent: (event: ConsultationStreamEvent) => void,
     onError: (message: string) => void
   ): () => void {
     return openConsultationStream(
-      `/consultations/${encodeURIComponent(consultationId)}/stream`,
+      `/consultations/${encodeURIComponent(consultationId)}/stream?anonymousUserId=${encodeURIComponent(anonymousUserId)}`,
       onEvent,
       onError
     );

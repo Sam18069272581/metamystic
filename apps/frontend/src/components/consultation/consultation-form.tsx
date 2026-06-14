@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Send } from "lucide-react";
-import type { ConsultationTone, Gender } from "@metamystic/shared";
+import type { ConsultationStreamEvent, ConsultationTone, Gender } from "@metamystic/shared";
+import { getOrCreateAnonymousUserId } from "@/lib/anonymous-user";
 import { apiClient } from "@/lib/api-client";
 import { useAppStore } from "@/store/app-store";
 import { buildConsultationFormView } from "./consultation-form-view";
@@ -21,7 +22,6 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
   const [tone, setTone] = useState<ConsultationTone>("strategic");
   const [question, setQuestion] = useState("\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u53d1\u5c55\u5417\uff1f");
   const store = useAppStore();
-  const anonymousUserId = useMemo(() => "local-demo-user", []);
   const formView = buildConsultationFormView({ initialChartId, initialProfileId });
   const usingSavedChart = formView.mode === "saved_chart";
 
@@ -56,13 +56,15 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
         : user
           ? await apiClient.upsertMyProfile(buildProfileInput())
           : await apiClient.upsertProfile({
-              anonymousUserId,
+              anonymousUserId: getOrCreateAnonymousUserId(),
               ...buildProfileInput()
             });
+      const anonymousUserId = createdProfile?.anonymousUserId;
       const profileId = usingSavedChart ? initialProfileId : createdProfile?.id;
       if (!profileId) {
         throw new Error("\u7f3a\u5c11\u547d\u4e3b\u6863\u6848\uff0c\u8bf7\u91cd\u65b0\u8fdb\u5165\u54a8\u8be2\u3002");
       }
+      const resolvedProfileId = profileId;
       const chart = usingSavedChart
         ? await apiClient.getMyChart("bazi", initialChartId as string).then((detail) => {
             if (!("pillars" in detail.chart)) {
@@ -71,14 +73,14 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
             return detail.chart;
           })
         : createdProfile?.anonymousUserId
-          ? await apiClient.createBaziChart({ profileId })
-          : await apiClient.createMyBaziChart({ profileId });
+          ? await apiClient.createBaziChart({ profileId: resolvedProfileId })
+          : await apiClient.createMyBaziChart({ profileId: resolvedProfileId });
       if (createdProfile) {
         store.setProfile(createdProfile);
       }
       store.setChart(chart);
       const consultationInput = {
-        profileId,
+        profileId: resolvedProfileId,
         chartId: chart.id,
         question,
         tone
@@ -88,65 +90,77 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
         : await apiClient.createConsultation(consultationInput);
       const historyScope = getConsultationHistoryScope({ hasUser: Boolean(user), usingSavedChart });
       store.setConsultation(consultation);
-      const stream = historyScope === "user" ? apiClient.streamMyConsultation : apiClient.streamConsultation;
-      stream(
-        consultation.id,
-        (event) => {
-          if (event.type === "chunk") {
-            store.appendStreamSection(event.section, event.content);
-          }
-          if (event.type === "provider") {
-            store.setProviderStatus(event);
-          }
-          if (event.type === "done") {
-            store.setLoading(false);
-            const historyRequest =
-              historyScope === "user"
-                ? apiClient.getMyConsultationHistory(consultation.id)
-                : apiClient.getConsultationHistory(consultation.id);
-            void historyRequest
-              .then((history) => store.setHistory(history))
-              .catch((error: unknown) => {
-                store.setError(
-                  error instanceof Error
-                    ? error.message
-                    : "\u54a8\u8be2\u8bb0\u5f55\u8bfb\u53d6\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
-                );
-              });
-            void apiClient
-              .getProfileMemory(profileId)
-              .then((memory) => store.setMemory(memory))
-              .catch((error: unknown) => {
-                store.setError(
-                  error instanceof Error
-                    ? error.message
-                    : "\u8bb0\u5fc6\u8bfb\u53d6\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
-                );
-              });
-            const consultationsRequest =
-              historyScope === "user"
-                ? apiClient.listMyProfileConsultations(profileId)
-                : apiClient.listProfileConsultations(profileId);
-            void consultationsRequest
-              .then((response) => store.setConsultations(response.consultations))
-              .catch((error: unknown) => {
-                store.setError(
-                  error instanceof Error
-                    ? error.message
-                    : "\u6700\u8fd1\u54a8\u8be2\u8bfb\u53d6\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
-                );
-              });
-          }
-          if (event.type === "error") {
-            store.setError(event.message);
-            store.setLoading(false);
-          }
-        },
-        (message) => {
-          store.setError(message);
+      const streamCleanup =
+        historyScope === "user"
+          ? apiClient.streamMyConsultation(
+              consultation.id,
+              handleStreamEvent,
+              handleStreamError
+            )
+          : apiClient.streamConsultation(
+              consultation.id,
+              anonymousUserId ?? getOrCreateAnonymousUserId(),
+              handleStreamEvent,
+              handleStreamError
+            );
+      void streamCleanup;
+
+      function handleStreamEvent(event: ConsultationStreamEvent) {
+        if (event.type === "chunk") {
+          store.appendStreamSection(event.section, event.content);
+        }
+        if (event.type === "provider") {
+          store.setProviderStatus(event);
+        }
+        if (event.type === "done") {
+          store.setLoading(false);
+          const historyRequest =
+            historyScope === "user"
+              ? apiClient.getMyConsultationHistory(consultation.id)
+              : apiClient.getConsultationHistory(consultation.id, anonymousUserId ?? getOrCreateAnonymousUserId());
+          void historyRequest
+            .then((history) => store.setHistory(history))
+            .catch((error: unknown) => {
+              store.setError(
+                error instanceof Error
+                  ? error.message
+                  : "\u54a8\u8be2\u8bb0\u5f55\u8bfb\u53d6\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
+              );
+            });
+          void apiClient
+            .getProfileMemory(resolvedProfileId)
+            .then((memory) => store.setMemory(memory))
+            .catch((error: unknown) => {
+              store.setError(
+                error instanceof Error
+                  ? error.message
+                  : "\u8bb0\u5fc6\u8bfb\u53d6\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
+              );
+            });
+          const consultationsRequest =
+            historyScope === "user"
+              ? apiClient.listMyProfileConsultations(resolvedProfileId)
+              : apiClient.listProfileConsultations(resolvedProfileId);
+          void consultationsRequest
+            .then((response) => store.setConsultations(response.consultations))
+            .catch((error: unknown) => {
+              store.setError(
+                error instanceof Error
+                  ? error.message
+                  : "\u6700\u8fd1\u54a8\u8be2\u8bfb\u53d6\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002"
+              );
+            });
+        }
+        if (event.type === "error") {
+          store.setError(event.message);
           store.setLoading(false);
         }
-      );
+      }
+
+      function handleStreamError(message: string) {
+        store.setError(message);
+        store.setLoading(false);
+      }
     } catch (error) {
       store.setError(error instanceof Error ? error.message : "\u63d0\u4ea4\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002");
       store.setLoading(false);

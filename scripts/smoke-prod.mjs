@@ -18,6 +18,7 @@ async function main() {
   await step("anonymous-bazi", "Anonymous profile can create a Bazi chart", smokeAnonymousBazi);
   await step("auth-daily-fortune", "Email auth can create profile, Bazi chart, and daily fortune", smokeAuthDailyFortune);
   await step("auth-chart-archive", "Authenticated users can create and retrieve Bazi, Ziwei, and Astrology charts", smokeAuthChartArchive);
+  await step("anonymous-history-privacy", "Anonymous consultations require the browser anonymous user id", smokeAnonymousHistoryPrivacy);
   await step("auth-history-privacy", "Authenticated consultations are hidden from public history lookup", smokeAuthHistoryPrivacy);
   if (config.skipAi) {
     summary.push({ name: "anonymous-ai-consultation", status: "skipped", detail: "SMOKE_SKIP_AI is enabled" });
@@ -199,6 +200,37 @@ async function smokeAuthHistoryPrivacy() {
   return `consultation=${consultation.id}`;
 }
 
+async function smokeAnonymousHistoryPrivacy() {
+  const profile = await createAnonymousProfile("smoke-anon-history");
+  const chart = await requestJson("/charts/bazi", {
+    method: "POST",
+    body: JSON.stringify({ profileId: profile.id })
+  });
+  const consultation = await requestJson("/consultations", {
+    method: "POST",
+    body: JSON.stringify({
+      profileId: profile.id,
+      chartId: chart.id,
+      question: "请判断近期是否适合推进职业规划？",
+      tone: "strategic"
+    })
+  });
+
+  await requestJsonExpectError(`/consultations/${consultation.id}`, 404);
+  await requestJsonExpectError(`/consultations/${consultation.id}?anonymousUserId=wrong-anon`, 404);
+  const history = await requestJson(
+    `/consultations/${consultation.id}?anonymousUserId=${encodeURIComponent(profile.anonymousUserId)}`
+  );
+  assert(history.consultation.id === consultation.id, "Anonymous history lookup returned the wrong consultation");
+
+  const publicStreamBody = await consumeConsultationStream(consultation.id);
+  assert(
+    publicStreamBody.includes("Consultation not found") && !publicStreamBody.includes('"type":"done"'),
+    "Anonymous consultation was streamable without the anonymous user id"
+  );
+  return `consultation=${consultation.id}`;
+}
+
 async function smokeAnonymousAiConsultation() {
   const profile = await createAnonymousProfile("smoke-ai");
   const chart = await requestJson("/charts/bazi", {
@@ -215,10 +247,15 @@ async function smokeAnonymousAiConsultation() {
     })
   });
 
-  const streamBody = await consumeConsultationStream(consultation.id);
+  const streamBody = await consumeConsultationStream(consultation.id, {
+    anonymousUserId: profile.anonymousUserId
+  });
   assertStreamCompleted(streamBody);
 
-  const history = await requestJson(`/consultations/${consultation.id}`);
+  await requestJsonExpectError(`/consultations/${consultation.id}`, 404);
+  const history = await requestJson(
+    `/consultations/${consultation.id}?anonymousUserId=${encodeURIComponent(profile.anonymousUserId)}`
+  );
   assert(history.consultation.status === "completed", `Consultation ended with status ${history.consultation.status}`);
   assert(Array.isArray(history.messages) && history.messages.length >= 2, "Consultation history did not persist user and assistant messages");
   return `consultation=${consultation.id}, messages=${history.messages.length}`;
@@ -276,7 +313,8 @@ async function registerSmokeUser() {
 }
 
 async function consumeConsultationStream(consultationId, options = {}) {
-  const path = options.path ?? `/consultations/${consultationId}/stream`;
+  const anonymousQuery = options.anonymousUserId ? `?anonymousUserId=${encodeURIComponent(options.anonymousUserId)}` : "";
+  const path = options.path ?? `/consultations/${consultationId}/stream${anonymousQuery}`;
   const streamResponse = await fetchWithTimeout(joinUrl(config.apiBaseUrl, path), {
     headers: {
       Accept: "text/event-stream",

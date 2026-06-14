@@ -27,12 +27,18 @@ export class ConsultationController {
   }
 
   @Get(":id")
-  async getConsultation(@Param("id") id: string): Promise<ApiResponse<ConsultationHistoryDto>> {
-    return ok(await this.consultationService.getHistory(id));
+  async getConsultation(
+    @Param("id") id: string,
+    @Query("anonymousUserId") anonymousUserId: string | undefined
+  ): Promise<ApiResponse<ConsultationHistoryDto>> {
+    return ok(await this.consultationService.getHistory(id, anonymousUserId));
   }
 
   @Sse(":id/stream")
-  streamConsultation(@Param("id") id: string): Observable<MessageEvent> {
-    return this.consultationService.streamConsultation(id);
+  streamConsultation(
+    @Param("id") id: string,
+    @Query("anonymousUserId") anonymousUserId: string | undefined
+  ): Observable<MessageEvent> {
+    return this.consultationService.streamConsultation(id, anonymousUserId);
   }
 }

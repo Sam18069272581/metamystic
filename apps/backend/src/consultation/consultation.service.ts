@@ -125,12 +125,18 @@ export class ConsultationService {
     return this.createConsultation(input);
   }
 
-  async getHistory(id: string): Promise<ConsultationHistoryDto> {
-    const consultation = await this.prisma.consultation.findUnique({
-      where: { id },
+  async getHistory(id: string, anonymousUserId: string | undefined): Promise<ConsultationHistoryDto> {
+    if (!anonymousUserId) {
+      throw new NotFoundException("Consultation not found");
+    }
+    const consultation = await this.prisma.consultation.findFirst({
+      where: {
+        id,
+        user: { anonymousUserId, email: null }
+      },
       include: { messages: { orderBy: { createdAt: "asc" } } }
     });
-    if (!consultation || consultation.userId) {
+    if (!consultation) {
       throw new NotFoundException("Consultation not found");
     }
 
@@ -196,16 +202,19 @@ export class ConsultationService {
     };
   }
 
-  streamConsultation(id: string): Observable<MessageEvent> {
+  streamConsultation(id: string, anonymousUserId: string | undefined): Observable<MessageEvent> {
     return this.streamConsultationRecord(id, async () => {
-      const consultation = await this.prisma.consultation.findUnique({
-        where: { id },
-        include: {
-          chart: true,
-          user: { select: { anonymousUserId: true, email: true } }
-        }
+      if (!anonymousUserId) {
+        throw new NotFoundException("Consultation not found");
+      }
+      const consultation = await this.prisma.consultation.findFirst({
+        where: {
+          id,
+          user: { anonymousUserId, email: null }
+        },
+        include: { chart: true }
       });
-      if (!consultation || !isPublicStreamOwner(consultation.user)) {
+      if (!consultation) {
         throw new NotFoundException("Consultation not found");
       }
       return consultation;
@@ -392,8 +401,4 @@ export class ConsultationService {
 
 function isAiProviderStatusEvent(event: unknown): event is AiProviderStatusEvent {
   return Boolean(event && typeof event === "object" && "type" in event && event.type === "provider");
-}
-
-function isPublicStreamOwner(user: { anonymousUserId: string | null; email: string | null } | undefined): boolean {
-  return Boolean(user?.anonymousUserId) && !user?.email;
 }
