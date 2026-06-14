@@ -70,6 +70,17 @@ function mockSuccess<T>(data: T): void {
   );
 }
 
+function jsonResponse<T>(payload: T, init: { ok: boolean; status: number }) {
+  return {
+    ok: init.ok,
+    status: init.status,
+    headers: {
+      get: (name: string) => (name.toLowerCase() === "content-type" ? "application/json" : "")
+    },
+    json: async () => payload
+  };
+}
+
 describe("apiClient", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -99,6 +110,63 @@ describe("apiClient", () => {
     expect(fetch).toHaveBeenCalledWith(
       "http://localhost:4000/api/v1/auth/register",
       expect.objectContaining({ method: "POST", credentials: "include" })
+    );
+  });
+
+  it("refreshes an expired access cookie and retries current-user requests", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            status: "error",
+            error: { message: "Authentication required" }
+          },
+          { ok: false, status: 401 }
+        )
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            status: "success",
+            data: {
+              user: { id: "user-1", email: "user@example.com", role: "USER" },
+              accessToken: "fresh-access.jwt",
+              refreshToken: "fresh-refresh",
+              expiresIn: 900
+            }
+          },
+          { ok: true, status: 201 }
+        )
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            status: "success",
+            data: { id: "user-1", email: "user@example.com", role: "USER" }
+          },
+          { ok: true, status: 200 }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = await apiClient.me();
+
+    expect(user.email).toBe("user@example.com");
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:4000/api/v1/auth/me",
+      expect.objectContaining({ method: "GET", credentials: "include" })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:4000/api/v1/auth/refresh",
+      expect.objectContaining({ method: "POST", credentials: "include" })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "http://localhost:4000/api/v1/auth/me",
+      expect.objectContaining({ method: "GET", credentials: "include" })
     );
   });
 
