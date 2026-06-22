@@ -32,6 +32,28 @@ import type {
 } from "@metamystic/shared";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
+let refreshInFlight: Promise<AuthSessionDto> | undefined;
+
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly statusCode: number
+  ) {
+    super(message);
+    this.name = "ApiClientError";
+  }
+}
+
+function refreshSession(): Promise<AuthSessionDto> {
+  if (!refreshInFlight) {
+    refreshInFlight = request<AuthSessionDto>("/auth/refresh", { method: "POST" }, { retryAfterRefresh: false })
+      .finally(() => {
+        refreshInFlight = undefined;
+      });
+  }
+  return refreshInFlight;
+}
 
 async function request<T>(path: string, init: RequestInit, options: { retryAfterRefresh?: boolean } = {}): Promise<T> {
   const retryAfterRefresh = options.retryAfterRefresh ?? true;
@@ -73,17 +95,21 @@ async function request<T>(path: string, init: RequestInit, options: { retryAfter
   if (!status) {
     const statusCode = "status" in response ? response.status : 500;
     if (statusCode === 401 && retryAfterRefresh && path !== "/auth/refresh") {
-      await request<AuthSessionDto>("/auth/refresh", { method: "POST" }, { retryAfterRefresh: false });
+      try {
+        await refreshSession();
+      } catch {
+        throw new ApiClientError("请先登录后继续。", "AUTHENTICATION_REQUIRED", 401);
+      }
       return request<T>(path, init, { retryAfterRefresh: false });
     }
     if (payload?.status === "error") {
-      throw new Error(payload.error.message);
+      throw new ApiClientError(payload.error.message, payload.error.code, statusCode);
     }
     throw new Error(`\u540e\u7aef\u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff08HTTP ${statusCode}\uff09\u3002\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002`);
   }
 
   if (payload?.status === "error") {
-    throw new Error(payload.error.message);
+    throw new ApiClientError(payload.error.message, payload.error.code, "status" in response ? response.status : 500);
   }
 
   if (!payload || payload.status !== "success") {

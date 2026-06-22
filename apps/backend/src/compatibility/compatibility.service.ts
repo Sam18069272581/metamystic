@@ -239,7 +239,7 @@ function scoreFiveElement(a: BaziChartDto, b: BaziChartDto): CompatibilityDimens
     const aValue = a.elements[element] ?? 0;
     const bValue = b.elements[element] ?? 0;
     const gap = Math.abs(aValue - bValue);
-    if (gap >= 2) {
+    if (gap >= 0.2) {
       score += 5;
       items.push(`${elementLabels[element]}气一方偏强、一方偏弱，存在互补空间`);
     } else {

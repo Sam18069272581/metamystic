@@ -21,7 +21,7 @@ describe("auth cookies", () => {
     vi.resetModules();
   });
 
-  it("uses cross-site secure cookies in production so Vercel can call the Railway API", async () => {
+  it("uses secure same-site cookies in production behind the same-origin proxy", async () => {
     process.env.NODE_ENV = "production";
     vi.resetModules();
     const { setAuthCookies } = await import("./auth-cookies");
@@ -32,7 +32,7 @@ describe("auth cookies", () => {
     const cookies = response.setHeader.mock.calls[0]?.[1] as string[];
     expect(cookies).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("SameSite=None"),
+        expect.stringContaining("SameSite=Lax"),
         expect.stringContaining("Secure")
       ])
     );

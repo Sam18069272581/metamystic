@@ -89,10 +89,21 @@ export class ProfileService {
     const profileCount = await this.prisma.profile.count({ where: { userId } });
     const isDefault = profileCount === 0 ? true : input.isDefault ?? false;
     if (isDefault && profileCount > 0) {
-      await this.prisma.profile.updateMany({
-        where: { userId },
-        data: { isDefault: false }
+      const profile = await this.prisma.$transaction(async (transaction) => {
+        await transaction.profile.updateMany({
+          where: { userId },
+          data: { isDefault: false }
+        });
+        return transaction.profile.create({
+          data: {
+            userId,
+            label: input.label ?? input.displayName ?? "self",
+            isDefault: true,
+            ...toProfileWrite(input)
+          }
+        });
       });
+      return toProfileDto(profile, "");
     }
 
     const profile = await this.prisma.profile.create({

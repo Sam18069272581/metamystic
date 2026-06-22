@@ -125,7 +125,7 @@ function FeatureTile({ href, icon, title }: { href: string; icon: React.ReactNod
         </div>
         <div>
           <p className="text-sm font-semibold text-white/80">{title}</p>
-          <p className="mt-1 text-xs text-white/38">{"\u5df2\u63a5\u5165 MVP"}</p>
+          <p className="mt-1 text-xs text-white/38">{"实验功能 · 结果仅供预览"}</p>
         </div>
       </div>
     </Link>

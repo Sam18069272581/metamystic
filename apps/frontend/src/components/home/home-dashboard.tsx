@@ -33,6 +33,11 @@ export function HomeDashboard() {
     setLoading(true);
     setError(undefined);
     try {
+      const user = await apiClient.me().catch(() => undefined);
+      if (!user) {
+        setFortune(undefined);
+        return;
+      }
       setFortune(await apiClient.getTodayDailyFortune());
     } catch (unknownError: unknown) {
       setFortune(undefined);
@@ -76,7 +81,7 @@ export function HomeDashboard() {
         <div className="mt-4 rounded-2xl bg-white/5 p-4">
           <p className="text-sm font-semibold text-white/86">{loading ? "正在读取今日签语" : display.title}</p>
           <p className="mt-2 text-sm leading-6 text-white/68">{loading ? "正在结合你的命盘结构生成今日建议。" : display.summary}</p>
-          {error ? <p className="mt-2 text-xs leading-5 text-rose-300">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs leading-5 text-rose-300">{error}</p> : null}
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">

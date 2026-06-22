@@ -166,7 +166,7 @@ interface TymePillarLike {
 
 export class TymeBaziEngine implements BaziEngine {
   calculate(input: BaziEngineInput): CalculatedBaziChart {
-    const local = this.getDateParts(input.birthTime);
+    const local = this.getDateParts(input.birthTime, input.birthTimezone);
     const solarTime = SolarTime.fromYmdHms(
       local.year,
       local.month,
@@ -222,7 +222,7 @@ export class TymeBaziEngine implements BaziEngine {
     };
   }
 
-  private getDateParts(date: Date): {
+  private getDateParts(date: Date, timeZone: string): {
     year: number;
     month: number;
     day: number;
@@ -230,13 +230,30 @@ export class TymeBaziEngine implements BaziEngine {
     minute: number;
     second: number;
   } {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(date);
+    const read = (type: Intl.DateTimeFormatPartTypes): number => {
+      const value = parts.find((part) => part.type === type)?.value;
+      if (!value) {
+        throw new RangeError(`Unable to resolve ${type} in timezone ${timeZone}`);
+      }
+      return Number(value);
+    };
     return {
-      year: date.getUTCFullYear(),
-      month: date.getUTCMonth() + 1,
-      day: date.getUTCDate(),
-      hour: date.getUTCHours(),
-      minute: date.getUTCMinutes(),
-      second: date.getUTCSeconds()
+      year: read("year"),
+      month: read("month"),
+      day: read("day"),
+      hour: read("hour"),
+      minute: read("minute"),
+      second: read("second")
     };
   }
 

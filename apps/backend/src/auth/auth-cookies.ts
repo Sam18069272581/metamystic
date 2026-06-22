@@ -17,6 +17,14 @@ export function clearAuthCookies(response: Response): void {
   ]);
 }
 
+export function setOAuthStateCookie(response: Response, state: string): void {
+  response.setHeader("Set-Cookie", serializeCookie("oauth_state", state, 10 * 60));
+}
+
+export function clearOAuthStateCookie(response: Response): void {
+  response.setHeader("Set-Cookie", serializeCookie("oauth_state", "", 0));
+}
+
 export function readCookie(cookieHeader: string | undefined, name: string): string | undefined {
   return cookieHeader
     ?.split(";")
@@ -27,6 +35,5 @@ export function readCookie(cookieHeader: string | undefined, name: string): stri
 
 function serializeCookie(name: string, value: string, maxAge: number): string {
   const secure = isProduction ? "; Secure" : "";
-  const sameSite = isProduction ? "None" : "Lax";
-  return `${name}=${encodeURIComponent(value)}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${maxAge}${secure}`;
+  return `${name}=${encodeURIComponent(value)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`;
 }

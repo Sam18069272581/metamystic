@@ -170,6 +170,48 @@ describe("apiClient", () => {
     );
   });
 
+  it("shares one refresh request across concurrent expired requests", async () => {
+    let meCalls = 0;
+    let refreshCalls = 0;
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        await Promise.resolve();
+        return jsonResponse(
+          {
+            status: "success",
+            data: {
+              user: { id: "user-1", email: "user@example.com", role: "USER" },
+              accessToken: "fresh-access.jwt",
+              refreshToken: "fresh-refresh",
+              expiresIn: 900
+            }
+          },
+          { ok: true, status: 201 }
+        );
+      }
+
+      meCalls += 1;
+      if (meCalls <= 2) {
+        return jsonResponse(
+          { status: "error", error: { message: "Authentication required" } },
+          { ok: false, status: 401 }
+        );
+      }
+      return jsonResponse(
+        { status: "success", data: { id: "user-1", email: "user@example.com", role: "USER" } },
+        { ok: true, status: 200 }
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const users = await Promise.all([apiClient.me(), apiClient.me()]);
+
+    expect(users.map((user) => user.id)).toEqual(["user-1", "user-1"]);
+    expect(refreshCalls).toBe(1);
+  });
+
   it("fetches anonymous profile memory signals with the browser anonymous user id", async () => {
     mockSuccess({
       decisionTopics: ["海外发展"],

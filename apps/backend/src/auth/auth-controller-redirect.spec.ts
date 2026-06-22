@@ -27,7 +27,12 @@ describe("AuthController Google callback", () => {
     process.env.FRONTEND_APP_URL = "http://localhost:3000";
     const controller = new AuthController(authService as never, googleOAuth as never);
 
-    await controller.googleCallback("oauth-code", response as never);
+    await controller.googleCallback(
+      "oauth-code",
+      "oauth-state",
+      { headers: { cookie: "oauth_state=oauth-state" } } as never,
+      response as never
+    );
 
     expect(response.setHeader).toHaveBeenCalledWith("Set-Cookie", expect.any(Array));
     expect(response.redirect).toHaveBeenCalledWith("http://localhost:3000/me?auth=google");
@@ -59,9 +64,27 @@ describe("AuthController Google callback", () => {
     process.env.FRONTEND_APP_URL = "https://metamystic.app/app/";
     const controller = new AuthController(authService as never, googleOAuth as never);
 
-    await controller.googleCallback("oauth-code", response as never);
+    await controller.googleCallback(
+      "oauth-code",
+      "oauth-state",
+      { headers: { cookie: "oauth_state=oauth-state" } } as never,
+      response as never
+    );
 
     expect(response.redirect).toHaveBeenCalledWith("https://metamystic.app/me?auth=google");
     process.env.FRONTEND_APP_URL = previousUrl;
+  });
+
+  it("rejects a Google callback with an invalid OAuth state", async () => {
+    const controller = new AuthController({ loginWithGoogle: vi.fn() } as never, { exchangeCode: vi.fn() } as never);
+
+    await expect(
+      controller.googleCallback(
+        "oauth-code",
+        "attacker-state",
+        { headers: { cookie: "oauth_state=expected-state" } } as never,
+        { setHeader: vi.fn(), redirect: vi.fn() } as never
+      )
+    ).rejects.toThrow("Invalid OAuth state");
   });
 });

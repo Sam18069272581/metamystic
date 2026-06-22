@@ -21,10 +21,10 @@ import { buildAccountNextStep, type AccountNextStep } from "./account-next-step"
 import { ShareButton } from "@/components/share/share-button";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
-import { getApiBaseUrl } from "@/lib/public-url";
+import { getClientApiBaseUrl } from "@/lib/public-url";
 
 export default function MePage() {
-  const authActions = getAccountAuthActions(getApiBaseUrl(process.env));
+  const authActions = getAccountAuthActions(getClientApiBaseUrl());
   const logoutAction = getAccountLogoutAction();
   const [authSource, setAuthSource] = useState<string | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);

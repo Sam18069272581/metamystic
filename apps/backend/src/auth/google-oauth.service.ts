@@ -18,7 +18,7 @@ interface GoogleUserInfoResponse {
 export class GoogleOAuthService {
   constructor(private readonly config: ConfigService) {}
 
-  getAuthorizationUrl(): string {
+  getAuthorizationUrl(state: string): string {
     const clientId = this.config.get<string>("GOOGLE_CLIENT_ID");
     const redirectUri = this.config.get<string>("GOOGLE_CALLBACK_URL");
     if (!clientId || !redirectUri) {
@@ -32,6 +32,7 @@ export class GoogleOAuthService {
       access_type: "offline",
       prompt: "consent"
     });
+    params.set("state", state);
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 

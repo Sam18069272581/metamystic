@@ -7,6 +7,8 @@ export interface MobileShellNavItem {
   icon: LucideIcon;
 }
 
+export const mobileShellStatusLabel = "夜间模式";
+
 export const mobileShellNavItems: MobileShellNavItem[] = [
   { href: "/", label: "首页", icon: Home },
   { href: "/consult", label: "AI", icon: MessageCircle },

@@ -17,5 +17,12 @@
   "devDependencies": {
     "next": "15.5.18",
     "typescript": "^5.7.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "form-data": "4.0.6",
+      "multer": "2.2.0",
+      "postcss": "8.5.10"
+    }
   }
 }

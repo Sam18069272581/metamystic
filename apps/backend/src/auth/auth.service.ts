@@ -99,6 +99,22 @@ export class AuthService {
     }
 
     const email = normalizeEmail(profile.email);
+    const existingUser = await this.prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      if (!profile.emailVerified) {
+        throw new UnauthorizedException("Google email must be verified before account linking");
+      }
+      await this.prisma.authIdentity.create({
+        data: {
+          userId: existingUser.id,
+          provider: "GOOGLE",
+          providerAccountId: profile.providerAccountId,
+          email
+        }
+      });
+      return this.createSession(existingUser as UserLike);
+    }
+
     const user = (await this.prisma.user.create({
       data: {
         email,
@@ -116,6 +132,19 @@ export class AuthService {
     })) as UserLike;
 
     return this.createSession(user);
+  }
+
+  async revokeRefreshToken(refreshToken: string): Promise<void> {
+    if (!refreshToken) {
+      return;
+    }
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        tokenHash: this.tokenService.hashRefreshToken(refreshToken),
+        revokedAt: null
+      },
+      data: { revokedAt: new Date() }
+    });
   }
 
 
