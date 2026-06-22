@@ -99,6 +99,15 @@ model Profile {
   displayName              String?
   birthTime                DateTime
   birthTimezone            String
+  birthCalendarType        String                 @default("solar")
+  birthLocalDate           String?
+  birthLocalTime           String?
+  birthTimePrecision       String                 @default("exact")
+  trueSolarTime            Boolean                @default(false)
+  trueSolarCorrection      Float                  @default(0)
+  lateZiHourRule           String                 @default("sameDay")
+  birthDataVersion         Int                    @default(1)
+  birthInput               Json?
   gender                   Gender
   birthPlace               String?
   latitude                 Float?

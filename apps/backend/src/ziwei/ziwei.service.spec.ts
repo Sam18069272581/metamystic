@@ -8,10 +8,16 @@ describe("ZiweiService", () => {
         findUnique: vi.fn().mockResolvedValue({
           id: "profile-1",
           birthTime: new Date("1995-05-20T10:30:00.000Z"),
+          birthTimezone: "UTC",
+          birthLocalDate: "1995-05-20",
+          birthLocalTime: "10:30",
+          lateZiHourRule: "nextDay",
+          birthDataVersion: 2,
           gender: "female"
         })
       },
       ziweiChart: {
+        findUnique: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockImplementation(({ data }) => ({
           id: "ziwei-db-1",
           profileId: data.profileId,
@@ -49,10 +55,17 @@ describe("ZiweiService", () => {
         findUnique: vi.fn().mockResolvedValue({
           id: "profile-1",
           userId: "user-1",
-          birthTime: new Date("1995-05-20T10:30:00.000Z")
+          birthTime: new Date("1995-05-20T10:30:00.000Z"),
+          birthTimezone: "UTC",
+          birthLocalDate: "1995-05-20",
+          birthLocalTime: "10:30",
+          lateZiHourRule: "nextDay",
+          birthDataVersion: 2,
+          gender: "female"
         })
       },
       ziweiChart: {
+        findUnique: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockImplementation(({ data }) => ({
           id: "ziwei-user-db-1",
           profileId: data.profileId,

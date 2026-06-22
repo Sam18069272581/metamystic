@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import type { ConsultationStreamEvent, ConsultationTone, Gender } from "@metamystic/shared";
 import { getOrCreateAnonymousUserId } from "@/lib/anonymous-user";
 import { apiClient } from "@/lib/api-client";
+import { buildBirthInputV2 } from "@/lib/birth-input";
 import { useAppStore } from "@/store/app-store";
 import { buildConsultationFormView } from "./consultation-form-view";
 import { getConsultationHistoryScope } from "./consultation-history-scope";
@@ -83,7 +84,9 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
         profileId: resolvedProfileId,
         chartId: chart.id,
         question,
-        tone
+        tone,
+        idempotencyKey: crypto.randomUUID(),
+        anonymousUserId
       };
       const consultation = user || usingSavedChart
         ? await apiClient.createMyConsultation(consultationInput)
@@ -171,10 +174,11 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
   }
 
   function buildProfileInput() {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return {
       displayName,
-      birthTime: new Date(birthTime).toISOString(),
-      birthTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      birthTimezone: timezone,
+      birthInput: buildBirthInputV2(birthTime, { timezone, lateZiHourRule: "nextDay" }),
       gender,
       birthPlace: "\u5317\u4eac",
       latitude: 39.9042,

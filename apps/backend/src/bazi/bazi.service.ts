@@ -6,6 +6,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import type { BaziEngine } from "./bazi-engine";
 import { enrichProfessionalBaziChart } from "./professional-bazi";
 
+const BAZI_ENGINE_VERSION = "2.0.0";
+
 @Injectable()
 export class BaziService {
   constructor(
@@ -36,7 +38,9 @@ export class BaziService {
       profileId,
       birthTime: profile.birthTime,
       birthTimezone: profile.birthTimezone,
-      gender: profile.gender
+      gender: profile.gender,
+      trueSolarCorrectionMinutes: profile.trueSolarCorrection ?? 0,
+      lateZiHourRule: profile.lateZiHourRule === "nextDay" ? "nextDay" : "sameDay"
     }));
 
     try {
@@ -44,6 +48,17 @@ export class BaziService {
         data: {
           profileId,
           fingerprint,
+          engine: typeof calculated.metadata.engine === "string" ? calculated.metadata.engine : "tyme4ts",
+          engineVersion: BAZI_ENGINE_VERSION,
+          inputHash: fingerprint,
+          inputSnapshot: asPrismaJson({
+            birthTime: profile.birthTime.toISOString(),
+            birthTimezone: profile.birthTimezone,
+            birthDataVersion: profile.birthDataVersion ?? 1,
+            trueSolarCorrection: profile.trueSolarCorrection ?? 0,
+            lateZiHourRule: profile.lateZiHourRule ?? "sameDay",
+            gender: profile.gender
+          }),
           dayMaster: calculated.dayMaster,
           dayMasterStatus: calculated.dayMasterStatus,
           mainPattern: calculated.mainPattern,
@@ -97,12 +112,19 @@ function createBaziChartFingerprint(profile: {
   birthTime: Date;
   birthTimezone: string;
   gender: string;
+  birthDataVersion?: number;
+  trueSolarCorrection?: number;
+  lateZiHourRule?: string;
 }): string {
   return createHash("sha256")
     .update(JSON.stringify({
       birthTime: profile.birthTime.toISOString(),
       birthTimezone: profile.birthTimezone,
-      gender: profile.gender
+      gender: profile.gender,
+      birthDataVersion: profile.birthDataVersion ?? 1,
+      trueSolarCorrection: profile.trueSolarCorrection ?? 0,
+      lateZiHourRule: profile.lateZiHourRule ?? "sameDay",
+      engineVersion: BAZI_ENGINE_VERSION
     }))
     .digest("hex");
 }

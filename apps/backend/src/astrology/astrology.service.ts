@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import type {
   AstrologyBody,
   AstrologyChartDto,
@@ -6,7 +6,6 @@ import type {
   AstrologyPlacementDto,
   FiveElement
 } from "@metamystic/shared";
-import { asPrismaJson } from "../prisma/prisma-json";
 import { PrismaService } from "../prisma/prisma.service";
 
 const signs = [
@@ -52,22 +51,7 @@ export class AstrologyService {
     if (!profile) {
       throw new NotFoundException("Profile not found");
     }
-    const calculated = this.calculate(profile.id, profile.birthTime, profile.latitude, profile.longitude);
-    const chart = await this.prisma.astrologyChart.create({
-      data: {
-        profileId: profile.id,
-        placements: asPrismaJson(calculated.placements),
-        houses: asPrismaJson(calculated.houses),
-        dominantElements: asPrismaJson(calculated.dominantElements),
-        summary: calculated.summary,
-        metadata: asPrismaJson({ analysis: calculated.analysis })
-      }
-    });
-    return {
-      ...calculated,
-      id: chart.id,
-      createdAt: chart.createdAt.toISOString()
-    };
+    throw new ServiceUnavailableException("Precise astrology calculations are still experimental and are not published as formal results.");
   }
 
   async createUserChart(userId: string, profileId: string): Promise<AstrologyChartDto> {

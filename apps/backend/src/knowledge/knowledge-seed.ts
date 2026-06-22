@@ -1,7 +1,7 @@
 export const knowledgeSeed = [
   {
     title: "MetaMystic 命理知识库 MVP",
-    sourceType: "curated_mvp",
+    sourceType: "curated_commentary",
     chunks: [
       chunk("ten-god-zhengguan", "career", ["十神", "正官", "事业", "规则"], ["career_path"], "正官代表秩序、规则、责任感与社会评价。正官旺或成用时，更适合稳定路径、资格认证、制度型组织与长期信誉建设。"),
       chunk("ten-god-qisha", "career", ["十神", "七杀", "压力", "竞争"], ["career_path", "risk"], "七杀代表压力、竞争、边界与行动风险。七杀不宜直接解读为坏事，关键在于是否有印星化杀、食神制杀或现实训练来承接。"),
@@ -44,7 +44,8 @@ function chunk(
     metadata: {
       domain: "bazi",
       topic,
-      classicalSource: classicalSourceFor(anchorId),
+      sourceKind: "curatedCommentary",
+      referenceWork: referenceWorkFor(anchorId),
       displayTitle: displayTitleFor(anchorId, tags),
       tags,
       decisionScenarios
@@ -52,17 +53,17 @@ function chunk(
   };
 }
 
-function classicalSourceFor(anchorId: string): string {
+function referenceWorkFor(anchorId: string): string {
   if (anchorId.startsWith("ten-god") || anchorId.startsWith("pattern")) {
-    return "\u300a\u5b50\u5e73\u771f\u8be0\u300b\u4e49\u7406\u6574\u7406";
+    return "\u300a\u5b50\u5e73\u771f\u8be0\u300b";
   }
   if (anchorId.startsWith("element") || anchorId.startsWith("day-master")) {
-    return "\u300a\u6ef4\u5929\u9ad3\u300b\u4e49\u7406\u6574\u7406";
+    return "\u300a\u6ef4\u5929\u9ad3\u300b";
   }
   if (anchorId.includes("study-abroad") || anchorId.includes("career") || anchorId.includes("relationship")) {
-    return "\u300a\u7a77\u901a\u5b9d\u9274\u300b\u4e49\u7406\u6574\u7406";
+    return "\u300a\u7a77\u901a\u5b9d\u9274\u300b";
   }
-  return "\u300a\u6ef4\u5929\u9ad3\u300b\u4e49\u7406\u6574\u7406";
+  return "\u300a\u6ef4\u5929\u9ad3\u300b";
 }
 
 function displayTitleFor(anchorId: string, tags: string[]): string {

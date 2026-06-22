@@ -6,6 +6,7 @@ import type { AstrologyChartDto, Gender } from "@metamystic/shared";
 import { AstrologyChartBoard } from "@/components/astrology/astrology-chart-board";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
+import { buildBirthInputV2 } from "@/lib/birth-input";
 
 export default function AstrologyPage() {
   const [birthTime, setBirthTime] = useState("1995-05-20T10:30");
@@ -18,10 +19,11 @@ export default function AstrologyPage() {
     setLoading(true);
     setError(undefined);
     try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const profileInput = {
         displayName: "命主",
-        birthTime: new Date(birthTime).toISOString(),
-        birthTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        birthTimezone: timezone,
+        birthInput: buildBirthInputV2(birthTime, { timezone, lateZiHourRule: "nextDay" }),
         gender,
         birthPlace: "北京",
         latitude: 39.9042,
@@ -52,7 +54,7 @@ export default function AstrologyPage() {
             </div>
             <div>
               <p className="gold-text text-lg font-semibold">{"本命星盘"}</p>
-              <p className="mt-1 text-xs text-white/42">{"生成太阳、月亮、上升与十二宫，作为 AI 长期画像的一部分"}</p>
+              <p className="mt-1 text-xs text-white/42">{"实验功能：精确星历与宫制尚在校准，当前不输出模拟结论"}</p>
             </div>
           </div>
 
@@ -81,10 +83,10 @@ export default function AstrologyPage() {
           <button
             type="button"
             onClick={() => void submit()}
-            disabled={loading}
+            disabled
             className="mt-4 w-full rounded-2xl bg-[#6d4bd0] px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-[#7b58df] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "生成中..." : "生成星盘"}
+            {"精确星历校准中"}
           </button>
           {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
         </section>

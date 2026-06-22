@@ -1,9 +1,9 @@
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { AstrologyService } from "./astrology.service";
 
 describe("AstrologyService", () => {
-  it("stores a deterministic astrology chart with core placements and twelve houses", async () => {
+  it("does not publish the seeded astrology approximation as a formal chart", async () => {
     const prisma = {
       profile: {
         findUnique: async () => ({
@@ -29,23 +29,8 @@ describe("AstrologyService", () => {
     };
     const service = new AstrologyService(prisma as never);
 
-    const chart = await service.createChart("profile-1");
-
-    expect(chart.id).toBe("astrology-db-1");
-    expect(chart.placements).toHaveLength(3);
-    expect(chart.placements.map((placement) => placement.body)).toEqual(["Sun", "Moon", "Ascendant"]);
-    expect(chart.houses).toHaveLength(12);
-    expect(chart.houses[0]?.house).toBe(1);
-    expect(chart.summary).toContain("\u661f\u76d8");
-    expect(chart.analysis?.coreIdentity).toContain("\u592a\u9633");
-    expect(chart.analysis?.socialMask).toContain("\u4e0a\u5347");
-    expect(prisma.astrologyChart.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        profileId: "profile-1",
-        placements: expect.any(Array),
-        houses: expect.any(Array)
-      })
-    });
+    await expect(service.createChart("profile-1")).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(prisma.astrologyChart.create).not.toHaveBeenCalled();
   });
 
   it("rejects profiles owned by another user", async () => {
@@ -91,11 +76,8 @@ describe("AstrologyService", () => {
     };
     const service = new AstrologyService(prisma as never);
 
-    const chart = await service.createUserChart("user-1", "profile-1");
-
-    expect(chart.id).toBe("astrology-user-db-1");
-    expect(chart.analysis?.advice).toContain("\u5143\u7d20");
-    expect(prisma.astrologyChart.create).toHaveBeenCalledOnce();
+    await expect(service.createUserChart("user-1", "profile-1")).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(prisma.astrologyChart.create).not.toHaveBeenCalled();
   });
 
   it("throws when profile is missing", async () => {

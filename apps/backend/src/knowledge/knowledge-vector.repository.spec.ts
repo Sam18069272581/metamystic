@@ -98,4 +98,19 @@ describe("KnowledgeVectorRepository", () => {
     ]);
     expect(prisma.$queryRaw).toHaveBeenCalledOnce();
   });
+
+  it("runs lexical ranking inside PostgreSQL", async () => {
+    const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([{
+        id: "chunk-1", sourceTitle: "平台整理", anchorId: "career", content: "事业决策需要验证",
+        metadata: { sourceKind: "curatedCommentary" }, score: 0.72
+      }])
+    };
+    const repository = new KnowledgeVectorRepository(prisma as never);
+
+    const chunks = await repository.findLexical("事业 决策", 6);
+
+    expect(chunks[0]).toEqual(expect.objectContaining({ id: "chunk-1", score: 0.72 }));
+    expect(prisma.$queryRaw).toHaveBeenCalledOnce();
+  });
 });

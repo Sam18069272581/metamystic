@@ -8,6 +8,22 @@ export type ConsultationTone = "strategic" | "gentle";
 
 export type UserRole = "USER" | "ADMIN";
 
+export interface BirthInputV2 {
+  calendarType: "solar" | "lunar" | "fourPillars";
+  localDate: string;
+  localTime?: string | undefined;
+  timezone: string;
+  location?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+  } | undefined;
+  timePrecision: "exact" | "hour" | "unknown";
+  trueSolarTime: boolean;
+  lateZiHourRule: "nextDay" | "sameDay";
+  lunarLeapMonth?: boolean | undefined;
+}
+
 export interface ApiSuccess<T> {
   status: "success";
   data: T;
@@ -27,12 +43,13 @@ export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 export interface UpsertProfileRequest {
   anonymousUserId: string;
   displayName?: string | undefined;
-  birthTime: string;
-  birthTimezone: string;
+  birthTime?: string | undefined;
+  birthTimezone?: string | undefined;
   gender: Gender;
   birthPlace?: string | undefined;
   latitude?: number | undefined;
   longitude?: number | undefined;
+  birthInput?: BirthInputV2 | undefined;
 }
 
 export interface UpsertUserProfileRequest extends Omit<UpsertProfileRequest, "anonymousUserId"> {}
@@ -42,12 +59,15 @@ export interface CreateUserProfileRequest extends UpsertUserProfileRequest {
   isDefault?: boolean | undefined;
 }
 
-export interface ProfileDto extends UpsertProfileRequest {
+export interface ProfileDto extends Omit<UpsertProfileRequest, "birthTime" | "birthTimezone"> {
   id: string;
+  birthTime: string;
+  birthTimezone: string;
   label?: string | undefined;
   isDefault?: boolean | undefined;
   createdAt: string;
   updatedAt: string;
+  needsBirthReview?: boolean | undefined;
 }
 
 export interface UserProfileListResponse {
@@ -361,6 +381,8 @@ export interface CreateConsultationRequest {
   chartId: string;
   question: string;
   tone: ConsultationTone;
+  idempotencyKey?: string | undefined;
+  anonymousUserId?: string | undefined;
 }
 
 export interface ConsultationDto {

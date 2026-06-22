@@ -1,37 +1,23 @@
 import { Injectable } from "@nestjs/common";
 import type { KnowledgeSearchResponse } from "@metamystic/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { KnowledgeEmbeddingService } from "./knowledge-embedding.service";
-
-interface KnowledgeChunkWithSource {
-  id: string;
-  anchorId: string;
-  content: string;
-  metadata: unknown;
-  source: {
-    title: string;
-  };
-}
+import { KnowledgeVectorRepository } from "./knowledge-vector.repository";
 
 @Injectable()
 export class KnowledgeService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly embeddings: KnowledgeEmbeddingService
+    private readonly embeddings: KnowledgeEmbeddingService,
+    private readonly repository: KnowledgeVectorRepository
   ) {}
 
   async search(query: string, limit = 4): Promise<KnowledgeSearchResponse> {
-    const chunks = await this.prisma.knowledgeChunk.findMany({
-      include: { source: true },
-      orderBy: { createdAt: "asc" },
-      take: 80
-    });
+    const chunks = await this.repository.findLexical(query, Math.max(limit * 3, limit));
 
     const ranked = await this.embeddings.rank(
       query,
-      chunks.map((chunk: KnowledgeChunkWithSource) => ({
+      chunks.map((chunk) => ({
         id: chunk.id,
-        sourceTitle: chunk.source.title,
+        sourceTitle: chunk.sourceTitle,
         anchorId: chunk.anchorId,
         content: chunk.content,
         metadata: this.asMetadata(chunk.metadata)

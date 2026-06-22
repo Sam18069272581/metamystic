@@ -5,6 +5,7 @@ import type { Gender, ZiweiChartDto } from "@metamystic/shared";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { ZiweiChartBoard } from "@/components/ziwei/ziwei-chart-board";
 import { apiClient } from "@/lib/api-client";
+import { buildBirthInputV2 } from "@/lib/birth-input";
 
 export default function ZiweiPage() {
   const [birthTime, setBirthTime] = useState("1995-05-20T10:30");
@@ -17,10 +18,11 @@ export default function ZiweiPage() {
     setLoading(true);
     setError(undefined);
     try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const profileInput = {
         displayName: "\u547d\u4e3b",
-        birthTime: new Date(birthTime).toISOString(),
-        birthTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        birthTimezone: timezone,
+        birthInput: buildBirthInputV2(birthTime, { timezone, lateZiHourRule: "nextDay" }),
         gender,
         birthPlace: "\u5317\u4eac",
         latitude: 39.9042,

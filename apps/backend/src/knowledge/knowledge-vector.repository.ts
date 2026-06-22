@@ -50,6 +50,40 @@ export class KnowledgeVectorRepository {
       .filter((chunk: KnowledgeChunkDto) => Number.isFinite(chunk.score) && chunk.score > 0);
   }
 
+  async findLexical(query: string, limit: number): Promise<KnowledgeChunkDto[]> {
+    if (limit <= 0 || !query.trim()) return [];
+    const rows = await this.prisma.$queryRaw<KnowledgeVectorRow[]>`
+      WITH query_tokens AS (
+        SELECT token
+        FROM unnest(regexp_split_to_array(lower(${query}), '\\s+')) AS token
+        WHERE length(token) >= 2
+      )
+      SELECT
+        kc.id,
+        ks.title AS "sourceTitle",
+        kc."anchorId",
+        kc.content,
+        kc.metadata,
+        count(DISTINCT qt.token)::double precision AS score
+      FROM "KnowledgeChunk" kc
+      INNER JOIN "KnowledgeSource" ks ON ks.id = kc."sourceId"
+      INNER JOIN query_tokens qt
+        ON lower(kc.content || ' ' || kc."anchorId" || ' ' || ks.title || ' ' || kc.metadata::text)
+          LIKE '%' || qt.token || '%'
+      GROUP BY kc.id, ks.title, kc."anchorId", kc.content, kc.metadata
+      ORDER BY score DESC, kc."createdAt" ASC
+      LIMIT ${limit}
+    `;
+    return rows.map((row) => ({
+      id: row.id,
+      sourceTitle: row.sourceTitle,
+      anchorId: row.anchorId,
+      content: row.content,
+      metadata: this.asMetadata(row.metadata),
+      score: Number(row.score)
+    }));
+  }
+
   async updateEmbedding(chunkId: string, embedding: number[]): Promise<void> {
     const vector = toPgVectorLiteral(embedding);
 

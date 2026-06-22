@@ -139,6 +139,45 @@ describe("ProfileService authenticated profile", () => {
     );
   });
 
+  it("persists BirthInputV2 using the declared timezone", async () => {
+    const prisma = {
+      profile: {
+        count: vi.fn().mockResolvedValue(0),
+        create: vi.fn().mockImplementation(({ data }) => Promise.resolve({
+          id: "profile-v2", ...data,
+          createdAt: new Date("2026-06-22T00:00:00.000Z"),
+          updatedAt: new Date("2026-06-22T00:00:00.000Z")
+        }))
+      }
+    };
+    const service = new ProfileService(prisma as never);
+
+    await service.createUserProfile("user-1", {
+      label: "self",
+      birthTimezone: "Europe/Berlin",
+      gender: "female",
+      birthInput: {
+        calendarType: "solar",
+        localDate: "1995-05-20",
+        localTime: "10:30",
+        timezone: "Europe/Berlin",
+        timePrecision: "exact",
+        trueSolarTime: false,
+        lateZiHourRule: "sameDay"
+      }
+    } as never);
+
+    expect(prisma.profile.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        birthTime: new Date("1995-05-20T08:30:00.000Z"),
+        birthCalendarType: "solar",
+        birthLocalDate: "1995-05-20",
+        birthLocalTime: "10:30",
+        birthDataVersion: 2
+      })
+    });
+  });
+
   it("creates a replacement default profile in one transaction", async () => {
     const created = {
       id: "profile-2",

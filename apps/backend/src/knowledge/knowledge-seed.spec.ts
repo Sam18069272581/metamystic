@@ -19,7 +19,9 @@ describe("knowledgeSeed", () => {
       expect(chunk.content).not.toMatch(/[锛屻€傜殑]/);
       expect(chunk.metadata.domain).toBe("bazi");
       expect(chunk.metadata.topic).toEqual(expect.any(String));
-      expect(chunk.metadata.classicalSource).toEqual(expect.stringMatching(/^《.+》/));
+      expect(chunk.metadata.sourceKind).toBe("curatedCommentary");
+      expect(chunk.metadata.referenceWork).toEqual(expect.stringMatching(/^《.+》$/));
+      expect(chunk.metadata).not.toHaveProperty("classicalSource");
       expect(chunk.metadata.displayTitle).toEqual(expect.any(String));
       expect(chunk.metadata.tags.length).toBeGreaterThanOrEqual(2);
       expect(chunk.metadata.decisionScenarios.length).toBeGreaterThanOrEqual(1);

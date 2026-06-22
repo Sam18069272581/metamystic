@@ -36,4 +36,25 @@ describe("TymeBaziEngine timezone handling", () => {
     expect(berlin.pillars).toEqual(sameLocalClockAtUtc.pillars);
     expect(berlin.dayMaster).toBe(sameLocalClockAtUtc.dayMaster);
   });
+
+  it("applies the configured late-Zi day rollover rule", () => {
+    const engine = new TymeBaziEngine();
+    const sameDay = engine.calculate({
+      profileId: "same-day",
+      birthTime: new Date("1995-05-20T15:30:00.000Z"),
+      birthTimezone: "Asia/Shanghai",
+      gender: "female",
+      lateZiHourRule: "sameDay"
+    });
+    const nextDay = engine.calculate({
+      profileId: "next-day",
+      birthTime: new Date("1995-05-20T15:30:00.000Z"),
+      birthTimezone: "Asia/Shanghai",
+      gender: "female",
+      lateZiHourRule: "nextDay"
+    });
+
+    expect(nextDay.pillars.day).not.toEqual(sameDay.pillars.day);
+    expect(nextDay.metadata.lateZiHourApplied).toBe(true);
+  });
 });

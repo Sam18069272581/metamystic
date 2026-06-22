@@ -8,7 +8,7 @@ import type {
   ConsultationStreamEvent,
   FiveElement
 } from "@metamystic/shared";
-import { Observable } from "rxjs";
+import { finalize, Observable, shareReplay } from "rxjs";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ProfileService } from "../profile/profile.service";
@@ -57,6 +57,7 @@ interface ConsultationStreamRecord extends ConsultationRecord {
 @Injectable()
 export class ConsultationService {
   private readonly logger = new Logger(ConsultationService.name);
+  private readonly activeStreams = new Map<string, Observable<MessageEvent>>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -67,14 +68,29 @@ export class ConsultationService {
   ) {}
 
   async createConsultation(input: CreateConsultationDto): Promise<ConsultationDto> {
-    const [profile, chart] = await Promise.all([
-      this.prisma.profile.findUnique({ where: { id: input.profileId }, include: { user: true } }),
-      this.prisma.baziChart.findUnique({ where: { id: input.chartId } })
-    ]);
+    return this.createOwnedConsultation(input, input.anonymousUserId ? { anonymousUserId: input.anonymousUserId } : {});
+  }
+
+  async createUserConsultation(userId: string, input: CreateConsultationDto): Promise<ConsultationDto> {
+    return this.createOwnedConsultation(input, { userId });
+  }
+
+  private async createOwnedConsultation(
+    input: CreateConsultationDto,
+    owner: { userId?: string; anonymousUserId?: string }
+  ): Promise<ConsultationDto> {
+    const profile = await this.prisma.profile.findUnique({ where: { id: input.profileId }, include: { user: true } });
 
     if (!profile) {
       throw new NotFoundException("Profile not found");
     }
+    if (owner.userId && profile.userId !== owner.userId) {
+      throw new ForbiddenException("Profile does not belong to current user");
+    }
+    if (!owner.userId && (!owner.anonymousUserId || profile.user.email !== null || profile.user.anonymousUserId !== owner.anonymousUserId)) {
+      throw new NotFoundException("Profile not found");
+    }
+    const chart = await this.prisma.baziChart.findUnique({ where: { id: input.chartId } });
     if (!chart || chart.profileId !== profile.id) {
       throw new NotFoundException("Bazi chart not found for this profile");
     }
@@ -84,45 +100,45 @@ export class ConsultationService {
       throw new UnprocessableEntityException(safety.reason);
     }
 
-    const consultation = await this.prisma.consultation.create({
-      data: {
-        userId: profile.userId,
-        profileId: profile.id,
-        chartId: chart.id,
-        question: input.question,
-        tone: input.tone,
-        metadata: { disclaimer: safety.disclaimer },
-        messages: {
-          create: {
-            role: "user",
-            content: input.question
+    if (input.idempotencyKey) {
+      const existing = await this.prisma.consultation.findUnique({
+        where: { userId_idempotencyKey: { userId: profile.userId, idempotencyKey: input.idempotencyKey } }
+      });
+      if (existing) {
+        return this.toConsultationDto(existing);
+      }
+    }
+
+    try {
+      const consultation = await this.prisma.consultation.create({
+        data: {
+          userId: profile.userId,
+          profileId: profile.id,
+          chartId: chart.id,
+          question: input.question,
+          tone: input.tone,
+          idempotencyKey: input.idempotencyKey ?? null,
+          promptVersion: "consultation-v2",
+          retrievalVersion: "hybrid-v1",
+          metadata: { disclaimer: safety.disclaimer },
+          messages: {
+            create: {
+              role: "user",
+              content: input.question
+            }
           }
         }
+      });
+      return this.toConsultationDto(consultation);
+    } catch (error) {
+      if (input.idempotencyKey && isUniqueConstraintError(error)) {
+        const existing = await this.prisma.consultation.findUnique({
+          where: { userId_idempotencyKey: { userId: profile.userId, idempotencyKey: input.idempotencyKey } }
+        });
+        if (existing) return this.toConsultationDto(existing);
       }
-    });
-
-    return this.toConsultationDto(consultation);
-  }
-
-  async createUserConsultation(userId: string, input: CreateConsultationDto): Promise<ConsultationDto> {
-    const profile = await this.prisma.profile.findUnique({
-      where: { id: input.profileId },
-      select: { userId: true }
-    });
-    if (!profile) {
-      throw new NotFoundException("Profile not found");
+      throw error;
     }
-    if (profile.userId !== userId) {
-      throw new ForbiddenException("Profile does not belong to current user");
-    }
-    const chart = await this.prisma.baziChart.findUnique({
-      where: { id: input.chartId },
-      select: { profileId: true }
-    });
-    if (!chart || chart.profileId !== input.profileId) {
-      throw new NotFoundException("Bazi chart not found for this profile");
-    }
-    return this.createConsultation(input);
   }
 
   async getHistory(id: string, anonymousUserId: string | undefined): Promise<ConsultationHistoryDto> {
@@ -203,7 +219,7 @@ export class ConsultationService {
   }
 
   streamConsultation(id: string, anonymousUserId: string | undefined): Observable<MessageEvent> {
-    return this.streamConsultationRecord(id, async () => {
+    return this.streamConsultationRecord(`anonymous:${anonymousUserId ?? "missing"}:${id}`, id, async () => {
       if (!anonymousUserId) {
         throw new NotFoundException("Consultation not found");
       }
@@ -222,7 +238,7 @@ export class ConsultationService {
   }
 
   streamUserConsultation(userId: string, id: string): Observable<MessageEvent> {
-    return this.streamConsultationRecord(id, async () => {
+    return this.streamConsultationRecord(`user:${userId}:${id}`, id, async () => {
       const consultation = await this.prisma.consultation.findFirst({
         where: { id, userId },
         include: { chart: true }
@@ -235,10 +251,13 @@ export class ConsultationService {
   }
 
   private streamConsultationRecord(
+    executionKey: string,
     id: string,
     loadConsultation: () => Promise<ConsultationStreamRecord>
   ): Observable<MessageEvent> {
-    return new Observable((subscriber) => {
+    const active = this.activeStreams.get(executionKey);
+    if (active) return active;
+    const stream = new Observable<MessageEvent>((subscriber) => {
       void this.runStream(id, loadConsultation, (event) => subscriber.next({ data: event })).then(
         () => subscriber.complete(),
         (error: unknown) => {
@@ -252,7 +271,12 @@ export class ConsultationService {
           subscriber.complete();
         }
       );
-    });
+    }).pipe(
+      finalize(() => this.activeStreams.delete(executionKey)),
+      shareReplay({ bufferSize: 100, refCount: false })
+    );
+    this.activeStreams.set(executionKey, stream);
+    return stream;
   }
 
   private async runStream(
@@ -262,9 +286,14 @@ export class ConsultationService {
   ): Promise<void> {
     const consultation = await loadConsultation();
 
+    if (consultation.status === "completed") {
+      emit({ type: "done", consultationId: id });
+      return;
+    }
+
     await this.prisma.consultation.update({
       where: { id },
-      data: { status: "streaming" }
+      data: { status: "streaming", startedAt: new Date(), errorCode: null }
     });
 
     const chart = this.toBaziChartDto(consultation.chart);
@@ -319,7 +348,8 @@ export class ConsultationService {
           where: { id },
           data: {
             status: "completed",
-            summary: summary.slice(0, 280)
+            summary: summary.slice(0, 280),
+            finishedAt: new Date()
           }
         })
       ]);
@@ -344,7 +374,11 @@ export class ConsultationService {
     } catch (error) {
       await this.prisma.consultation.update({
         where: { id },
-        data: { status: "failed" }
+        data: {
+          status: "failed",
+          finishedAt: new Date(),
+          errorCode: error instanceof Error ? error.name : "AI_STREAM_FAILED"
+        }
       });
       throw error;
     }
@@ -401,4 +435,8 @@ export class ConsultationService {
 
 function isAiProviderStatusEvent(event: unknown): event is AiProviderStatusEvent {
   return Boolean(event && typeof event === "object" && "type" in event && event.type === "provider");
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
 }

@@ -1,5 +1,7 @@
-import { IsDateString, IsIn, IsLatitude, IsLongitude, IsOptional, IsString, Length } from "class-validator";
+import { Type } from "class-transformer";
+import { IsDateString, IsIn, IsLatitude, IsLongitude, IsOptional, IsString, Length, ValidateNested } from "class-validator";
 import type { Gender, UpsertProfileRequest } from "@metamystic/shared";
+import { BirthInputDto } from "./birth-input.dto";
 
 export class UpsertProfileDto implements UpsertProfileRequest {
   @IsString()
@@ -11,12 +13,19 @@ export class UpsertProfileDto implements UpsertProfileRequest {
   @Length(1, 80)
   displayName?: string;
 
+  @IsOptional()
   @IsDateString()
-  birthTime!: string;
+  birthTime?: string;
 
+  @IsOptional()
   @IsString()
   @Length(1, 80)
-  birthTimezone!: string;
+  birthTimezone?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BirthInputDto)
+  birthInput?: BirthInputDto;
 
   @IsIn(["female", "male", "non_binary", "unknown"])
   gender!: Gender;

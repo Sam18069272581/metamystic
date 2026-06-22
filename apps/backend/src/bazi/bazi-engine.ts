@@ -6,6 +6,8 @@ export interface BaziEngineInput {
   birthTime: Date;
   birthTimezone: string;
   gender: string;
+  trueSolarCorrectionMinutes?: number;
+  lateZiHourRule?: "nextDay" | "sameDay";
 }
 
 export interface CalculatedBaziChart extends Omit<BaziChartDto, "id" | "createdAt"> {
@@ -166,7 +168,10 @@ interface TymePillarLike {
 
 export class TymeBaziEngine implements BaziEngine {
   calculate(input: BaziEngineInput): CalculatedBaziChart {
-    const local = this.getDateParts(input.birthTime, input.birthTimezone);
+    const originalLocal = this.getDateParts(input.birthTime, input.birthTimezone);
+    const correctedLocal = this.applyMinuteCorrection(originalLocal, input.trueSolarCorrectionMinutes ?? 0);
+    const lateZiHourApplied = input.lateZiHourRule === "nextDay" && correctedLocal.hour === 23;
+    const local = lateZiHourApplied ? this.applyMinuteCorrection(correctedLocal, 24 * 60) : correctedLocal;
     const solarTime = SolarTime.fromYmdHms(
       local.year,
       local.month,
@@ -214,6 +219,9 @@ export class TymeBaziEngine implements BaziEngine {
         supportiveElement,
         supportScore,
         dominantElement,
+        trueSolarCorrectionMinutes: input.trueSolarCorrectionMinutes ?? 0,
+        lateZiHourRule: input.lateZiHourRule ?? "sameDay",
+        lateZiHourApplied,
         fetalOrigin: eightChar.getFetalOrigin().getName(),
         fetalBreath: eightChar.getFetalBreath().getName(),
         ownSign: eightChar.getOwnSign().getName(),
@@ -254,6 +262,14 @@ export class TymeBaziEngine implements BaziEngine {
       hour: read("hour"),
       minute: read("minute"),
       second: read("second")
+    };
+  }
+
+  private applyMinuteCorrection(parts: { year: number; month: number; day: number; hour: number; minute: number; second: number }, minutes: number) {
+    const corrected = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute + minutes, parts.second));
+    return {
+      year: corrected.getUTCFullYear(), month: corrected.getUTCMonth() + 1, day: corrected.getUTCDate(),
+      hour: corrected.getUTCHours(), minute: corrected.getUTCMinutes(), second: corrected.getUTCSeconds()
     };
   }
 

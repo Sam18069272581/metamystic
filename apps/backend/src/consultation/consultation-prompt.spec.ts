@@ -30,7 +30,8 @@ describe("buildConsultationPrompt", () => {
           metadata: {
             tags: ["\u6740\u5370\u76f8\u751f"],
             topic: "study_abroad",
-            classicalSource: "\u300a\u5b50\u5e73\u771f\u8be0\u300b\u4e49\u7406\u6574\u7406",
+            sourceKind: "curatedCommentary",
+            referenceWork: "\u300a\u5b50\u5e73\u771f\u8be0\u300b",
             displayTitle: "\u6740\u5370\u76f8\u751f"
           },
           score: 0.42
@@ -42,7 +43,7 @@ describe("buildConsultationPrompt", () => {
     expect(prompt.system).toContain("\u5fc5\u987b\u4f18\u5148\u4f7f\u7528\u3010RAG \u77e5\u8bc6\u4f9d\u636e\u3011");
     expect(prompt.system).toContain("\u547d\u76d8\u89e6\u53d1\u70b9");
     expect(prompt.system).toContain("\u6bcf\u4e2a\u89e6\u53d1\u70b9\u5fc5\u987b\u8bf4\u660e\u201c\u547d\u76d8\u56e0\u7d20 \u2192 \u5bf9\u95ee\u9898\u7684\u542b\u4e49\u201d");
-    expect(prompt.user).toContain("[K1] \u300a\u5b50\u5e73\u771f\u8be0\u300b\u4e49\u7406\u6574\u7406\uff5c\u6740\u5370\u76f8\u751f");
+    expect(prompt.user).toContain("[K1] \u5e73\u53f0\u6574\u7406\uff08\u53c2\u8003\u300a\u5b50\u5e73\u771f\u8be0\u300b\uff09\uff5c\u6740\u5370\u76f8\u751f");
     expect(prompt.user).not.toContain("#pattern-shayin");
     expect(prompt.user).toContain("\u3010\u795e\u715e\u8f85\u52a9\u89e3\u8bfb\u3011");
     expect(prompt.user).toContain("\u6708\u67f1\uff1a\u5929\u4e59\u8d35\u4eba\uff5c\u8d35\u4eba\uff5c\u9047\u4e8b\u8f83\u6613\u5f97\u5173\u952e\u52a9\u529b");
