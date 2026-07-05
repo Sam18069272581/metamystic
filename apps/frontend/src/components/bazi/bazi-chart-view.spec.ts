@@ -16,6 +16,20 @@ describe("bazi chart view helpers", () => {
     expect(getOrderedBaziPillars(chart).map(([name]) => name)).toEqual(["year", "month", "day", "hour"]);
   });
 
+  it("hides the placeholder hour pillar when the birth time is unknown", () => {
+    const chart = {
+      metadata: { timePrecision: "unknown", hourPillarReliable: false },
+      pillars: {
+        year: { stem: "A", branch: "A", tenGod: "A", hiddenStems: [] },
+        month: { stem: "B", branch: "B", tenGod: "B", hiddenStems: [] },
+        day: { stem: "C", branch: "C", tenGod: "C", hiddenStems: [] },
+        hour: { stem: "D", branch: "D", tenGod: "D", hiddenStems: [] }
+      }
+    } as unknown as BaziChartDto;
+
+    expect(getOrderedBaziPillars(chart).map(([name]) => name)).toEqual(["year", "month", "day"]);
+  });
+
   it("uses shensha as the display metadata instead of nayin", () => {
     expect(getPillarShensha({ stem: "乙", branch: "卯", tenGod: "日主", hiddenStems: [], shensha: ["将星"] })).toEqual([
       "将星"

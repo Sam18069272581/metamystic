@@ -291,10 +291,15 @@ export class ConsultationService {
       return;
     }
 
-    await this.prisma.consultation.update({
-      where: { id },
+    const claim = await this.prisma.consultation.updateMany({
+      where: { id, status: "pending" },
       data: { status: "streaming", startedAt: new Date(), errorCode: null }
     });
+    if (claim.count === 0) {
+      await this.waitForTerminalStatus(id);
+      emit({ type: "done", consultationId: id });
+      return;
+    }
 
     const chart = this.toBaziChartDto(consultation.chart);
     const safety = this.safety.evaluateQuestion(consultation.question);
@@ -384,6 +389,25 @@ export class ConsultationService {
     }
   }
 
+  private async waitForTerminalStatus(id: string): Promise<void> {
+    const timeoutAt = Date.now() + 60_000;
+    while (Date.now() < timeoutAt) {
+      const current = await this.prisma.consultation.findUnique({
+        where: { id },
+        select: { status: true, errorCode: true }
+      });
+      if (!current) {
+        throw new NotFoundException("Consultation not found");
+      }
+      if (current.status === "completed") return;
+      if (current.status === "failed") {
+        throw new Error(current.errorCode ?? "AI stream failed");
+      }
+      await delay(50);
+    }
+    throw new Error("Consultation stream is still running");
+  }
+
   private toConsultationDto(consultation: {
     id: string;
     profileId: string;
@@ -439,4 +463,8 @@ function isAiProviderStatusEvent(event: unknown): event is AiProviderStatusEvent
 
 function isUniqueConstraintError(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002");
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

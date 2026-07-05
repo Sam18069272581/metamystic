@@ -8,6 +8,7 @@ export interface BaziEngineInput {
   gender: string;
   trueSolarCorrectionMinutes?: number;
   lateZiHourRule?: "nextDay" | "sameDay";
+  timePrecision?: "exact" | "hour" | "unknown";
 }
 
 export interface CalculatedBaziChart extends Omit<BaziChartDto, "id" | "createdAt"> {
@@ -188,12 +189,14 @@ export class TymeBaziEngine implements BaziEngine {
       day: this.toPillar(eightChar.getDay() as TymePillarLike, dayStem),
       hour: this.toPillar(eightChar.getHour() as TymePillarLike, dayStem)
     };
-    const elements = this.calculateElements([
+    const hourPillarReliable = input.timePrecision !== "unknown";
+    const calculationPillars = [
       eightChar.getYear() as TymePillarLike,
       eightChar.getMonth() as TymePillarLike,
-      eightChar.getDay() as TymePillarLike,
-      eightChar.getHour() as TymePillarLike
-    ]);
+      eightChar.getDay() as TymePillarLike
+    ];
+    if (hourPillarReliable) calculationPillars.push(eightChar.getHour() as TymePillarLike);
+    const elements = this.calculateElements(calculationPillars);
     const dayMaster = dayStem.getName();
     const dayElement = this.toFiveElement(dayStem.getElement().getName());
     const supportiveElement = generatingElement[dayElement];
@@ -222,6 +225,8 @@ export class TymeBaziEngine implements BaziEngine {
         trueSolarCorrectionMinutes: input.trueSolarCorrectionMinutes ?? 0,
         lateZiHourRule: input.lateZiHourRule ?? "sameDay",
         lateZiHourApplied,
+        timePrecision: input.timePrecision ?? "exact",
+        hourPillarReliable,
         fetalOrigin: eightChar.getFetalOrigin().getName(),
         fetalBreath: eightChar.getFetalBreath().getName(),
         ownSign: eightChar.getOwnSign().getName(),

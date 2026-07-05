@@ -169,24 +169,51 @@ export class ProfileService {
   }
 
   async rememberCompletedConsultation(input: RememberCompletedConsultationInput): Promise<ProfileMemorySignalsDto> {
-    const profile = await this.prisma.profile.findUnique({
-      where: { id: input.profileId },
-      select: { memorySignals: true }
-    });
     const incoming = extractProfileMemorySignals({
       consultationId: input.consultationId,
       question: input.question,
       answer: input.answer,
       tone: input.tone
     });
-    const merged = mergeProfileMemorySignals(normalizeMemorySignals(profile?.memorySignals), incoming);
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT "id" FROM "Profile" WHERE "id" = ${input.profileId} FOR UPDATE`;
+      const profile = await transaction.profile.findUnique({
+        where: { id: input.profileId },
+        select: { id: true }
+      });
+      if (!profile) {
+        throw new NotFoundException("Profile not found");
+      }
 
-    await this.prisma.profile.update({
-      where: { id: input.profileId },
-      data: { memorySignals: toJsonObject(merged) }
+      const existing = await transaction.profileMemoryEvent.findUnique({
+        where: { consultationId: input.consultationId },
+        select: { id: true }
+      });
+      if (!existing) {
+        await transaction.profileMemoryEvent.create({
+          data: {
+            profileId: input.profileId,
+            consultationId: input.consultationId,
+            payload: toJsonObject(incoming)
+          }
+        });
+      }
+
+      const events = await transaction.profileMemoryEvent.findMany({
+        where: { profileId: input.profileId },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { payload: true }
+      });
+      const merged = events.reduce(
+        (snapshot, event) => mergeProfileMemorySignals(snapshot, normalizeMemorySignals(event.payload)),
+        emptyMemorySignals()
+      );
+      await transaction.profile.update({
+        where: { id: input.profileId },
+        data: { memorySignals: toJsonObject(merged) }
+      });
+      return merged;
     });
-
-    return merged;
   }
 }
 

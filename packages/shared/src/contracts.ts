@@ -9,7 +9,7 @@ export type ConsultationTone = "strategic" | "gentle";
 export type UserRole = "USER" | "ADMIN";
 
 export interface BirthInputV2 {
-  calendarType: "solar" | "lunar" | "fourPillars";
+  calendarType: "solar" | "lunar";
   localDate: string;
   localTime?: string | undefined;
   timezone: string;

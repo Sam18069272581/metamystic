@@ -40,7 +40,8 @@ export class BaziService {
       birthTimezone: profile.birthTimezone,
       gender: profile.gender,
       trueSolarCorrectionMinutes: profile.trueSolarCorrection ?? 0,
-      lateZiHourRule: profile.lateZiHourRule === "nextDay" ? "nextDay" : "sameDay"
+      lateZiHourRule: profile.lateZiHourRule === "nextDay" ? "nextDay" : "sameDay",
+      timePrecision: profile.birthTimePrecision === "unknown" ? "unknown" : profile.birthTimePrecision === "hour" ? "hour" : "exact"
     }));
 
     try {
@@ -57,6 +58,7 @@ export class BaziService {
             birthDataVersion: profile.birthDataVersion ?? 1,
             trueSolarCorrection: profile.trueSolarCorrection ?? 0,
             lateZiHourRule: profile.lateZiHourRule ?? "sameDay",
+            timePrecision: profile.birthTimePrecision ?? "exact",
             gender: profile.gender
           }),
           dayMaster: calculated.dayMaster,
@@ -115,6 +117,7 @@ function createBaziChartFingerprint(profile: {
   birthDataVersion?: number;
   trueSolarCorrection?: number;
   lateZiHourRule?: string;
+  birthTimePrecision?: string;
 }): string {
   return createHash("sha256")
     .update(JSON.stringify({
@@ -124,6 +127,7 @@ function createBaziChartFingerprint(profile: {
       birthDataVersion: profile.birthDataVersion ?? 1,
       trueSolarCorrection: profile.trueSolarCorrection ?? 0,
       lateZiHourRule: profile.lateZiHourRule ?? "sameDay",
+      timePrecision: profile.birthTimePrecision ?? "exact",
       engineVersion: BAZI_ENGINE_VERSION
     }))
     .digest("hex");

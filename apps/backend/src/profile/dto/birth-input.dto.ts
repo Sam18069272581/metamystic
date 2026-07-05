@@ -14,7 +14,7 @@ class BirthLocationDto {
 }
 
 export class BirthInputDto implements BirthInputV2 {
-  @IsIn(["solar", "lunar", "fourPillars"])
+  @IsIn(["solar", "lunar"])
   calendarType!: BirthInputV2["calendarType"];
 
   @Matches(/^\d{4}-\d{2}-\d{2}$/)

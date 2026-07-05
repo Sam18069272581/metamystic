@@ -7,8 +7,8 @@ Updated: 2026-06-22
 - Branch: `codex/trust-stability-v2`
 - Pull request: https://github.com/Sam18069272581/metamystic/pull/1
 - Production: https://metamystic.vercel.app (does not include this branch until merge/deploy)
-- Estimated plan completion: 85%
-- Current local verification: 213 tests, typecheck, production build, Prisma validation, and production dependency audit passed.
+- Estimated plan completion: 90%
+- Current local verification: 219 tests, typecheck, production build, Prisma validation, repository config check, and production dependency audit passed.
 
 ## Completed
 
@@ -25,6 +25,11 @@ Updated: 2026-06-22
 - Main profile creation, BaZi, consultation, Ziwei, and astrology entry points no longer convert local birth clocks with browser `toISOString()`.
 - BaZi UI now supports solar/lunar input, leap month, exact/unknown time, IANA timezone, editable coordinates, true solar time, and late-Zi rollover.
 - Consultation creation uses user-scoped idempotency keys; concurrent SSE subscribers share one model execution and record run timestamps/errors.
+- Consultation streaming now uses a database-level pending-to-streaming claim, so duplicate workers do not perform duplicate AI calls.
+- Refresh tokens now carry a session family; rotated-token replay revokes the family and prevents reuse.
+- Profile memory is append-only through `ProfileMemoryEvent`, then materialized back to `Profile.memorySignals` under a row lock.
+- Unknown birth time is treated as an unreliable hour pillar: BaZi strength, ten-god distribution, shensha, and UI display exclude the hour pillar.
+- Unsupported explicit four-pillar input is removed from the public BirthInputV2 contract until it can be represented as a non-instant chart type.
 - Knowledge retrieval now selects lexical candidates in PostgreSQL before vector/semantic ranking instead of loading the first 80 rows.
 - Curated knowledge is explicitly labeled as platform commentary with a reference work, never as primary classical text.
 - Ziwei calculation now uses pinned `iztro@2.5.8`; charts are fingerprinted and stored with engine/input metadata.
@@ -37,11 +42,14 @@ Apply in order with `pnpm --filter @metamystic/backend prisma:deploy`:
 
 1. `20260622173000_trust_stability_v2`
 2. `20260622180000_birth_input_v2`
+3. `20260622204500_profile_memory_events`
 
 The first migration normalizes duplicate defaults before creating `Profile_one_default_per_user`.
+The third migration creates append-only profile memory events and backfills non-empty legacy profile memory snapshots.
 
 ## In progress
 
+- Add route-level Chinese/English localization with `/zh` as the default route and `/en` as the English route.
 - Add automatic birth-place geocoding and a profile review marker for legacy records.
 - Add golden fixtures for Shanghai/Berlin, solar-term boundaries, DST overlap, true-solar day crossing, and late-Zi month/year boundaries.
 - Add a legacy Ziwei recalculation action and richer four-transformations/three-directions display.
@@ -52,8 +60,8 @@ The first migration normalizes duplicate defaults before creating `Profile_one_d
 ## Next execution point
 
 1. Run `git status --short` in `D:\Codex\.worktrees\metamystic-trust-stability`.
-2. Run focused BirthInputV2 tests and `pnpm typecheck`.
-3. Add legacy `needsBirthReview` behavior and the Ziwei recalculation action.
+2. Run full repo verification before committing the current stability batch.
+3. Add route-level bilingual UI shell and home page.
 4. Add PostgreSQL integration and Playwright browser coverage, then perform deployment smoke tests.
 
 Docker Desktop was unavailable on 2026-06-22, so Prisma schema validation passed but migration execution against a fresh PostgreSQL database remains unverified.

@@ -57,4 +57,25 @@ describe("TymeBaziEngine timezone handling", () => {
     expect(nextDay.pillars.day).not.toEqual(sameDay.pillars.day);
     expect(nextDay.metadata.lateZiHourApplied).toBe(true);
   });
+
+  it("excludes the hour pillar from element weighting when birth time is unknown", () => {
+    const engine = new TymeBaziEngine();
+    const morning = engine.calculate({
+      profileId: "unknown-morning",
+      birthTime: new Date("1995-05-20T00:00:00.000Z"),
+      birthTimezone: "Asia/Shanghai",
+      gender: "female",
+      timePrecision: "unknown"
+    });
+    const evening = engine.calculate({
+      profileId: "unknown-evening",
+      birthTime: new Date("1995-05-20T12:00:00.000Z"),
+      birthTimezone: "Asia/Shanghai",
+      gender: "female",
+      timePrecision: "unknown"
+    });
+
+    expect(morning.elements).toEqual(evening.elements);
+    expect(morning.metadata.hourPillarReliable).toBe(false);
+  });
 });

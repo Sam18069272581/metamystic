@@ -113,12 +113,13 @@ export function enrichProfessionalBaziChart<T extends CalculatedBaziChart | Bazi
 ): T & Pick<BaziChartDto, "pillars" | "usefulGods" | "unfavorableGods" | "analysis" | "metadata"> {
   const usefulGods = inferUsefulGods(chart.dayMaster, chart.dayMasterStatus);
   const unfavorableGods = inferUnfavorableGods(chart.dayMaster, chart.dayMasterStatus);
+  const hourPillarReliable = chart.metadata?.hourPillarReliable !== false;
   const pillars = enrichPillarsWithShensha({
     year: enrichPillar(chart.pillars.year, chart.dayMaster),
     month: enrichPillar(chart.pillars.month, chart.dayMaster),
     day: enrichPillar(chart.pillars.day, chart.dayMaster),
     hour: enrichPillar(chart.pillars.hour, chart.dayMaster)
-  }, chart.dayMaster);
+  }, chart.dayMaster, hourPillarReliable);
   const analysis = buildBaziAnalysis({ ...chart, pillars }, usefulGods, unfavorableGods);
   return {
     ...chart,
@@ -175,14 +176,15 @@ function enrichPillar(pillar: BaziPillarDto, dayMaster: string): BaziPillarDto {
 
 function enrichPillarsWithShensha(
   pillars: BaziChartDto["pillars"],
-  dayMaster: string
+  dayMaster: string,
+  hourPillarReliable: boolean
 ): BaziChartDto["pillars"] {
   const calculated = calculateBaziShensha(pillars, dayMaster);
   return {
     year: { ...pillars.year, shensha: mergeShensha(pillars.year.shensha, calculated.year) },
     month: { ...pillars.month, shensha: mergeShensha(pillars.month.shensha, calculated.month) },
     day: { ...pillars.day, shensha: mergeShensha(pillars.day.shensha, calculated.day) },
-    hour: { ...pillars.hour, shensha: mergeShensha(pillars.hour.shensha, calculated.hour) }
+    hour: { ...pillars.hour, shensha: hourPillarReliable ? mergeShensha(pillars.hour.shensha, calculated.hour) : [] }
   };
 }
 
@@ -358,7 +360,9 @@ function buildTenGodDistribution(chart: CalculatedBaziChart | BaziChartDto): Non
   const add = (tenGod: string, weight: number): void => {
     weights[tenGod] = Number(((weights[tenGod] ?? 0) + weight).toFixed(2));
   };
-  const pillars = [chart.pillars.year, chart.pillars.month, chart.pillars.day, chart.pillars.hour];
+  const pillars = chart.metadata?.hourPillarReliable === false
+    ? [chart.pillars.year, chart.pillars.month, chart.pillars.day]
+    : [chart.pillars.year, chart.pillars.month, chart.pillars.day, chart.pillars.hour];
 
   for (const [index, pillar] of pillars.entries()) {
     if (index !== 2) {

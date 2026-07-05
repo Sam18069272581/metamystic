@@ -121,11 +121,23 @@ model Profile {
   ziweiCharts              ZiweiChart[]
   astrologyCharts          AstrologyChart[]
   consultations            Consultation[]
+  memoryEvents             ProfileMemoryEvent[]
   compatibilityReadingsAsA CompatibilityReading[] @relation("CompatibilityProfileA")
   compatibilityReadingsAsB CompatibilityReading[] @relation("CompatibilityProfileB")
 
   @@index([userId, isDefault])
   @@index([userId, createdAt])
+}
+
+model ProfileMemoryEvent {
+  id             String   @id @default(cuid())
+  profileId      String
+  consultationId String   @unique
+  payload        Json
+  createdAt      DateTime @default(now())
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
 }
 
 model BaziChart {

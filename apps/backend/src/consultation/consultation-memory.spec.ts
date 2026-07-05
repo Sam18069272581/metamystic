@@ -33,6 +33,7 @@ describe("ConsultationService memory integration", () => {
     const prisma = {
       consultation: {
         findFirst: vi.fn().mockResolvedValue(consultation),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         update: vi.fn().mockResolvedValue({})
       },
       consultationMessage: {

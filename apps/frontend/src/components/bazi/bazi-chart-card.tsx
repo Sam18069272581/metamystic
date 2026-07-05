@@ -54,14 +54,19 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
       </div>
 
       <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
-        <div className="grid grid-cols-4 bg-white/[0.04]">
+        {chart.metadata?.hourPillarReliable === false ? (
+          <p className="border-b border-amber-200/10 bg-amber-200/[0.05] px-3 py-2 text-xs text-amber-100/70">
+            {"时辰未知：当前仅展示年月日三柱，时柱不参与旺衰、十神和喜忌分析。"}
+          </p>
+        ) : null}
+        <div className="grid bg-white/[0.04]" style={{ gridTemplateColumns: `repeat(${pillars.length}, minmax(0, 1fr))` }}>
           {pillars.map(([name]) => (
             <div key={name} className="border-r border-white/10 px-2 py-2 text-center text-xs text-white/48 last:border-r-0">
               {pillarLabels[name]}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-4">
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${pillars.length}, minmax(0, 1fr))` }}>
           {pillars.map(([name, pillar]) => {
             const insights = buildPillarShenshaInsights(getPillarShensha(pillar));
             return (
@@ -81,7 +86,7 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
           })}
         </div>
         {mode === "professional" ? (
-          <div className="grid grid-cols-4 border-t border-white/10 bg-black/10">
+          <div className="grid border-t border-white/10 bg-black/10" style={{ gridTemplateColumns: `repeat(${pillars.length}, minmax(0, 1fr))` }}>
             {pillars.map(([name, pillar]) => (
               <div key={name} className="min-h-24 border-r border-white/10 p-2 last:border-r-0">
                 <p className="mb-2 text-center text-[10px] text-white/35">{"\u85cf\u5e72 / \u5341\u795e"}</p>

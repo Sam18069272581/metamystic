@@ -9,9 +9,6 @@ export interface ResolvedBirthInput {
 }
 
 export function resolveBirthInput(input: BirthInputV2): ResolvedBirthInput {
-  if (input.calendarType === "fourPillars") {
-    throw new RangeError("Four-pillar reverse lookup requires explicit pillar values");
-  }
   const localTime = input.localTime ?? "12:00";
   const parsed = parseLocalDateTime(input.localDate, localTime);
   const solar = input.calendarType === "lunar" ? lunarToSolar(parsed, input.lunarLeapMonth === true) : parsed;

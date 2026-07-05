@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import type { AuthSessionDto, AuthUserDto, LoginRequest, RegisterRequest, UserRole } from "@metamystic/shared";
+import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { PasswordService } from "./password.service";
 import { TokenService } from "./token.service";
@@ -79,14 +80,53 @@ export class AuthService {
       where: { tokenHash },
       include: { user: true }
     });
-    if (!stored || stored.revokedAt || stored.expiresAt <= new Date()) {
+    if (!stored) {
       throw new UnauthorizedException("Invalid refresh token");
     }
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() }
-    });
-    return this.createSession(stored.user as UserLike);
+    if (stored.revokedAt) {
+      await this.revokeTokenFamily(stored.id, stored.familyId);
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+    if (stored.expiresAt <= new Date()) {
+      await this.prisma.refreshToken.updateMany({
+        where: { id: stored.id, revokedAt: null },
+        data: { revokedAt: new Date() }
+      });
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
+    const replacement = this.tokenService.createRefreshToken();
+    const familyId = stored.familyId ?? stored.id;
+    try {
+      await this.prisma.$transaction(async (transaction) => {
+        const claim = await transaction.refreshToken.updateMany({
+          where: { id: stored.id, revokedAt: null },
+          data: { revokedAt: new Date() }
+        });
+        if (claim.count !== 1) {
+          throw new RefreshTokenReuseError();
+        }
+        const created = await transaction.refreshToken.create({
+          data: {
+            userId: stored.userId,
+            tokenHash: replacement.hash,
+            expiresAt: replacement.expiresAt,
+            familyId
+          }
+        });
+        await transaction.refreshToken.update({
+          where: { id: stored.id },
+          data: { replacedByTokenId: created.id }
+        });
+      });
+    } catch (error) {
+      if (error instanceof RefreshTokenReuseError) {
+        await this.revokeTokenFamily(stored.id, familyId);
+        throw new UnauthorizedException("Invalid refresh token");
+      }
+      throw error;
+    }
+    return this.buildSession(stored.user as UserLike, replacement.token);
   }
 
   async loginWithGoogle(profile: GoogleUserProfile): Promise<AuthSessionDto> {
@@ -157,28 +197,43 @@ export class AuthService {
   }
 
   private async createSession(user: UserLike): Promise<AuthSessionDto> {
-    const accessToken = this.tokenService.signAccessToken({
-      sub: user.id,
-      email: user.email ?? undefined,
-      role: user.role
-    });
     const refresh = this.tokenService.createRefreshToken();
     await this.prisma.refreshToken.create({
       data: {
         userId: user.id,
         tokenHash: refresh.hash,
-        expiresAt: refresh.expiresAt
+        expiresAt: refresh.expiresAt,
+        familyId: randomUUID()
       }
+    });
+
+    return this.buildSession(user, refresh.token);
+  }
+
+  private buildSession(user: UserLike, refreshToken: string): AuthSessionDto {
+    const accessToken = this.tokenService.signAccessToken({
+      sub: user.id,
+      email: user.email ?? undefined,
+      role: user.role
     });
 
     return {
       user: toAuthUserDto(user),
       accessToken,
-      refreshToken: refresh.token,
+      refreshToken,
       expiresIn: this.tokenService.accessTtlSeconds
     };
   }
+
+  private async revokeTokenFamily(tokenId: string, familyId: string | null): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: familyId ? { familyId, revokedAt: null } : { id: tokenId, revokedAt: null },
+      data: { revokedAt: new Date() }
+    });
+  }
 }
+
+class RefreshTokenReuseError extends Error {}
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
