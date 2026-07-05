@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { mobileShellNavItems, mobileShellStatusLabel } from "./mobile-shell-nav";
+import { getMobileShellNavItems, mobileShellStatusLabel } from "./mobile-shell-nav";
 
 describe("mobile shell navigation", () => {
-  it("links the account tab to the account page", () => {
-    expect(mobileShellNavItems.find((item) => item.label === "我的")?.href).toBe("/me");
+  it("localizes Chinese navigation labels and links", () => {
+    expect(getMobileShellNavItems("zh")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ href: "/zh/me", label: "我的" })])
+    );
+  });
+
+  it("localizes English navigation labels and links", () => {
+    expect(getMobileShellNavItems("en")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ href: "/en/me", label: "Me" })])
+    );
   });
 });
 

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Home, MessageCircle, MoonStar, UserRound } from "lucide-react";
+import { getDictionary, type Locale, withLocale } from "../../lib/i18n";
 
 export interface MobileShellNavItem {
   href: string;
@@ -9,9 +10,12 @@ export interface MobileShellNavItem {
 
 export const mobileShellStatusLabel = "夜间模式";
 
-export const mobileShellNavItems: MobileShellNavItem[] = [
-  { href: "/", label: "首页", icon: Home },
-  { href: "/consult", label: "AI", icon: MessageCircle },
-  { href: "/charts/bazi", label: "命盘", icon: MoonStar },
-  { href: "/me", label: "我的", icon: UserRound }
-];
+export function getMobileShellNavItems(locale: Locale): MobileShellNavItem[] {
+  const dictionary = getDictionary(locale);
+  return [
+    { href: withLocale("/", locale), label: dictionary.shell.nav.home, icon: Home },
+    { href: withLocale("/consult", locale), label: dictionary.shell.nav.consult, icon: MessageCircle },
+    { href: withLocale("/charts/bazi", locale), label: dictionary.shell.nav.bazi, icon: MoonStar },
+    { href: withLocale("/me", locale), label: dictionary.shell.nav.me, icon: UserRound }
+  ];
+}

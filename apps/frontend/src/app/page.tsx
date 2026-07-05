@@ -1,10 +1,6 @@
-import { HomeDashboard } from "@/components/home/home-dashboard";
-import { MobileShell } from "@/components/shell/mobile-shell";
+import { redirect } from "next/navigation";
+import { defaultLocale } from "@/lib/i18n";
 
 export default function Page() {
-  return (
-    <MobileShell title="今日运势">
-      <HomeDashboard />
-    </MobileShell>
-  );
+  redirect(`/${defaultLocale}`);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { BaziChartCard } from "@/components/bazi/bazi-chart-card";
 import { ConsultationForm } from "@/components/consultation/consultation-form";
@@ -9,18 +9,21 @@ import { ConsultationStream } from "@/components/consultation/consultation-strea
 import { RecentConsultationsPanel } from "@/components/consultation/recent-consultations-panel";
 import { ProfileMemoryPanel } from "@/components/profile/profile-memory-panel";
 import { MobileShell } from "@/components/shell/mobile-shell";
+import { getDictionary, getLocaleFromPathname, type Locale } from "@/lib/i18n";
 import { useAppStore } from "@/store/app-store";
 
 export default function ConsultPage() {
+  const locale = getLocaleFromPathname(usePathname());
   return (
-    <Suspense fallback={<ConsultPageFallback />}>
-      <ConsultPageContent />
+    <Suspense fallback={<ConsultPageFallback locale={locale} />}>
+      <ConsultPageContent locale={locale} />
     </Suspense>
   );
 }
 
-function ConsultPageContent() {
+function ConsultPageContent({ locale }: { locale: Locale }) {
   const searchParams = useSearchParams();
+  const dictionary = getDictionary(locale);
   const chart = useAppStore((state) => state.chart);
   const consultations = useAppStore((state) => state.consultations);
   const history = useAppStore((state) => state.history);
@@ -29,7 +32,7 @@ function ConsultPageContent() {
   const streamSections = useAppStore((state) => state.streamSections);
 
   return (
-    <MobileShell title={"AI \u547d\u7406\u5bf9\u8bdd"}>
+    <MobileShell locale={locale} title={dictionary.pages.consult}>
       <div className="space-y-4">
         <ConsultationForm
           initialChartId={searchParams.get("chartId") ?? undefined}
@@ -45,9 +48,10 @@ function ConsultPageContent() {
   );
 }
 
-function ConsultPageFallback() {
+function ConsultPageFallback({ locale }: { locale: Locale }) {
+  const dictionary = getDictionary(locale);
   return (
-    <MobileShell title={"AI \u547d\u7406\u5bf9\u8bdd"}>
+    <MobileShell locale={locale} title={dictionary.pages.consult}>
       <div className="space-y-4">
         <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/5" />
         <div className="h-64 animate-pulse rounded-2xl border border-white/10 bg-white/5" />

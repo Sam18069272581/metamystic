@@ -2,29 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { BookOpen, CupSoda, MessageCircle, RefreshCw, Sparkles } from "lucide-react";
 import type { DailyFortuneDto, FiveElement } from "@metamystic/shared";
 import { ShareButton } from "@/components/share/share-button";
 import { apiClient } from "@/lib/api-client";
+import { getDictionary, oppositeLocale, switchLocalePath, type Locale, withLocale } from "@/lib/i18n";
 import { getDailyFortunePrimaryAction } from "./home-dashboard-view";
 
-const entries = [
-  { label: "AI 命理对话", href: "/consult", icon: MessageCircle, active: true },
-  { label: "八字排盘", href: "/charts/bazi", icon: Sparkles, active: true },
-  { label: "知识库", href: "/consult", icon: BookOpen, active: true },
-  { label: "圣杯决策", href: "/consult", icon: CupSoda, active: false }
-];
-
-const elementLabels: Record<FiveElement, string> = {
-  wood: "木",
-  fire: "火",
-  earth: "土",
-  metal: "金",
-  water: "水"
-};
-
-export function HomeDashboard() {
+export function HomeDashboard({ locale = "zh" }: { locale?: Locale }) {
+  const dictionary = getDictionary(locale);
+  const pathname = usePathname();
   const [fortune, setFortune] = useState<DailyFortuneDto | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
@@ -41,7 +30,7 @@ export function HomeDashboard() {
       setFortune(await apiClient.getTodayDailyFortune());
     } catch (unknownError: unknown) {
       setFortune(undefined);
-      setError(unknownError instanceof Error ? unknownError.message : "今日签语读取失败");
+      setError(unknownError instanceof Error ? unknownError.message : dictionary.home.loadError);
     } finally {
       setLoading(false);
     }
@@ -51,9 +40,18 @@ export function HomeDashboard() {
     void loadFortune();
   }, []);
 
-  const display = fortune ?? fallbackFortune;
-  const primaryAction = getDailyFortunePrimaryAction(display.status);
-  const shareText = `${display.date} 今日签语：${display.score}分。${display.title} ${display.advice[0] ?? ""}`;
+  const display = fortune ?? buildFallbackFortune(locale);
+  const primaryAction = getDailyFortunePrimaryAction(display.status, locale);
+  const shareText = `${display.date} ${dictionary.home.dailyFortune}: ${display.score}${dictionary.home.scoreUnit}. ${display.title} ${
+    display.advice[0] ?? ""
+  }`;
+  const targetLocale = oppositeLocale(locale);
+  const entries = [
+    { label: dictionary.home.entries.consult, href: withLocale("/consult", locale), icon: MessageCircle, active: true },
+    { label: dictionary.home.entries.bazi, href: withLocale("/charts/bazi", locale), icon: Sparkles, active: true },
+    { label: dictionary.home.entries.knowledge, href: withLocale("/consult", locale), icon: BookOpen, active: true },
+    { label: dictionary.home.entries.decision, href: withLocale("/consult", locale), icon: CupSoda, active: false }
+  ];
 
   return (
     <div className="space-y-4">
@@ -64,24 +62,34 @@ export function HomeDashboard() {
       >
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-sm text-white/55">{display.date} · 今日签语</p>
+            <div className="flex items-center gap-2 text-sm text-white/55">
+              <p>{display.date} · {dictionary.home.dailyFortune}</p>
+              <Link
+                href={switchLocalePath(pathname, targetLocale)}
+                className="rounded-full border border-amber-200/20 bg-amber-200/10 px-2 py-0.5 text-xs font-semibold text-amber-100"
+              >
+                {dictionary.home.languageSwitch}
+              </Link>
+            </div>
             <div className="mt-2 flex items-end gap-2">
               <h1 className="text-5xl font-semibold text-[#f2cf8d]">{loading ? "--" : display.score}</h1>
-              <span className="pb-2 text-sm text-white/45">分</span>
+              <span className="pb-2 text-sm text-white/45">{dictionary.home.scoreUnit}</span>
             </div>
           </div>
           <div className="grid h-28 w-28 shrink-0 place-items-center rounded-full border border-[#d8a850]/25 bg-[#6d4bd0]/15 shadow-glow">
             <div className="text-center">
               <Sparkles className="mx-auto h-8 w-8 text-[#f2cf8d]" />
-              <p className="mt-2 text-xs text-[#f2cf8d]">{elementLabels[display.element]}气</p>
+              <p className="mt-2 text-xs text-[#f2cf8d]">
+                {dictionary.home.elements[display.element]} {dictionary.home.elementSuffix}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="mt-4 rounded-2xl bg-white/5 p-4">
-          <p className="text-sm font-semibold text-white/86">{loading ? "正在读取今日签语" : display.title}</p>
-          <p className="mt-2 text-sm leading-6 text-white/68">{loading ? "正在结合你的命盘结构生成今日建议。" : display.summary}</p>
-      {error ? <p className="mt-2 text-xs leading-5 text-rose-300">{error}</p> : null}
+          <p className="text-sm font-semibold text-white/86">{loading ? dictionary.home.loadingTitle : display.title}</p>
+          <p className="mt-2 text-sm leading-6 text-white/68">{loading ? dictionary.home.loadingSummary : display.summary}</p>
+          {error ? <p className="mt-2 text-xs leading-5 text-rose-300">{error}</p> : null}
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -101,9 +109,10 @@ export function HomeDashboard() {
           </Link>
           <ShareButton
             className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-200/15"
-            path="/"
+            labels={dictionary.home.shareLabels}
+            path={withLocale("/", locale)}
             text={shareText}
-            title="MetaMystic 今日签语"
+            title={dictionary.home.shareTitle}
           />
           <button
             className="grid h-12 w-12 place-items-center rounded-2xl border border-amber-200/20 bg-amber-200/10 text-amber-100 transition hover:bg-amber-200/15"
@@ -135,17 +144,17 @@ export function HomeDashboard() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="gold-text text-lg font-semibold">为你推荐</h2>
-          <span className="text-xs text-white/40">下一步接入每日推送</span>
+          <h2 className="gold-text text-lg font-semibold">{dictionary.home.recommendationsTitle}</h2>
+          <span className="text-xs text-white/40">{dictionary.home.recommendationsHint}</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <article className="mystic-card rounded-2xl p-4">
-            <p className="text-sm font-medium text-white/85">2026 流年趋势</p>
-            <p className="mt-3 text-xs leading-5 text-white/50">结合命盘结构生成年度行动建议。</p>
+            <p className="text-sm font-medium text-white/85">{dictionary.home.yearlyTrendTitle}</p>
+            <p className="mt-3 text-xs leading-5 text-white/50">{dictionary.home.yearlyTrendSummary}</p>
           </article>
           <article className="mystic-card rounded-2xl p-4">
-            <p className="text-sm font-medium text-white/85">关系问题入口</p>
-            <p className="mt-3 text-xs leading-5 text-white/50">用温和陪伴模式处理情绪型问题。</p>
+            <p className="text-sm font-medium text-white/85">{dictionary.home.relationshipTitle}</p>
+            <p className="mt-3 text-xs leading-5 text-white/50">{dictionary.home.relationshipSummary}</p>
           </article>
         </div>
       </section>
@@ -153,14 +162,17 @@ export function HomeDashboard() {
   );
 }
 
-const fallbackFortune: DailyFortuneDto = {
-  date: new Date().toISOString().slice(0, 10),
-  status: "needs_profile",
-  score: 50,
-  element: "water",
-  title: "先建立你的命盘档案",
-  summary: "登录并填写出生信息后，MetaMystic 会根据你的命盘生成每日签语。",
-  advice: ["先完成基础档案", "再查看今日适合推进的事项"],
-  cautions: ["未建立命盘前只显示通用提醒。"],
-  luckyActions: ["适合学习、研究和深谈"]
-};
+function buildFallbackFortune(locale: Locale): DailyFortuneDto {
+  const dictionary = getDictionary(locale);
+  return {
+    date: new Date().toISOString().slice(0, 10),
+    status: "needs_profile",
+    score: 50,
+    element: "water",
+    title: dictionary.home.fallbackTitle,
+    summary: dictionary.home.fallbackSummary,
+    advice: [...dictionary.home.fallbackAdvice],
+    cautions: [dictionary.home.fallbackCaution],
+    luckyActions: [dictionary.home.fallbackLuckyAction]
+  };
+}

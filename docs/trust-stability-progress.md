@@ -7,8 +7,8 @@ Updated: 2026-06-22
 - Branch: `codex/trust-stability-v2`
 - Pull request: https://github.com/Sam18069272581/metamystic/pull/1
 - Production: https://metamystic.vercel.app (does not include this branch until merge/deploy)
-- Estimated plan completion: 90%
-- Current local verification: 219 tests, typecheck, production build, Prisma validation, repository config check, and production dependency audit passed.
+- Estimated plan completion: 92%
+- Current local verification: 131 backend tests, 95 frontend tests, shared typecheck, full typecheck, production build, Prisma validation, repository config check, and production dependency audit passed.
 
 ## Completed
 
@@ -30,6 +30,9 @@ Updated: 2026-06-22
 - Profile memory is append-only through `ProfileMemoryEvent`, then materialized back to `Profile.memorySignals` under a row lock.
 - Unknown birth time is treated as an unreliable hour pillar: BaZi strength, ten-god distribution, shensha, and UI display exclude the hour pillar.
 - Unsupported explicit four-pillar input is removed from the public BirthInputV2 contract until it can be represented as a non-instant chart type.
+- Route-level bilingual shell added with `/zh` as the default route and `/en` as the English route.
+- Home page, bottom navigation, daily-reading fallback, primary CTA, auth/page titles, and core localized route entries now use a typed Chinese/English dictionary.
+- Root `/` redirects to `/zh`; `/zh/consult`, `/en/consult`, `/zh/charts/bazi`, `/en/charts/bazi`, `/zh/me`, and `/en/me` build successfully.
 - Knowledge retrieval now selects lexical candidates in PostgreSQL before vector/semantic ranking instead of loading the first 80 rows.
 - Curated knowledge is explicitly labeled as platform commentary with a reference work, never as primary classical text.
 - Ziwei calculation now uses pinned `iztro@2.5.8`; charts are fingerprinted and stored with engine/input metadata.
@@ -49,7 +52,7 @@ The third migration creates append-only profile memory events and backfills non-
 
 ## In progress
 
-- Add route-level Chinese/English localization with `/zh` as the default route and `/en` as the English route.
+- Continue migrating deep form labels and generated content to locale-aware copy.
 - Add automatic birth-place geocoding and a profile review marker for legacy records.
 - Add golden fixtures for Shanghai/Berlin, solar-term boundaries, DST overlap, true-solar day crossing, and late-Zi month/year boundaries.
 - Add a legacy Ziwei recalculation action and richer four-transformations/three-directions display.
@@ -60,8 +63,8 @@ The third migration creates append-only profile memory events and backfills non-
 ## Next execution point
 
 1. Run `git status --short` in `D:\Codex\.worktrees\metamystic-trust-stability`.
-2. Run full repo verification before committing the current stability batch.
-3. Add route-level bilingual UI shell and home page.
+2. Add locale-aware AI prompt/output handling for user-facing generated content.
+3. Add legacy `needsBirthReview` behavior and the Ziwei recalculation action.
 4. Add PostgreSQL integration and Playwright browser coverage, then perform deployment smoke tests.
 
 Docker Desktop was unavailable on 2026-06-22, so Prisma schema validation passed but migration execution against a fresh PostgreSQL database remains unverified.

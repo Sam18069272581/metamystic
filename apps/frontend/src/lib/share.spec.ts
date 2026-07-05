@@ -62,4 +62,11 @@ describe("share utilities", () => {
     expect(statusText("shared")).toBe("已分享");
     expect(statusText("unsupported")).toBe("无法分享");
   });
+
+  it("supports caller-provided labels for share button states", () => {
+    const labels = { idle: "Share", copied: "Copied", shared: "Shared", unsupported: "Unavailable" };
+
+    expect(statusText("idle", labels)).toBe("Share");
+    expect(statusText("copied", labels)).toBe("Copied");
+  });
 });

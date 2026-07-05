@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import type {
   AuthUserDto,
@@ -23,8 +24,11 @@ import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
 import { getClientApiBaseUrl } from "@/lib/public-url";
 import { buildBirthInputV2 } from "@/lib/birth-input";
+import { getDictionary, getLocaleFromPathname } from "@/lib/i18n";
 
 export default function MePage() {
+  const locale = getLocaleFromPathname(usePathname());
+  const dictionary = getDictionary(locale);
   const authActions = getAccountAuthActions(getClientApiBaseUrl());
   const logoutAction = getAccountLogoutAction();
   const [authSource, setAuthSource] = useState<string | null>(null);
@@ -205,7 +209,7 @@ export default function MePage() {
   }
 
   return (
-    <MobileShell title={"\u4e2a\u4eba\u8d44\u6599"}>
+    <MobileShell locale={locale} title={dictionary.pages.me}>
       <div className="space-y-4">
         <section className="mystic-card rounded-3xl p-5">
           <div className="flex items-center gap-3">

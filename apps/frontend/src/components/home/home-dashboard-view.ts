@@ -1,20 +1,25 @@
 import type { DailyFortuneDto } from "@metamystic/shared";
+import { getDictionary, type Locale, withLocale } from "../../lib/i18n";
 
-export function getDailyFortunePrimaryAction(status: DailyFortuneDto["status"]): { href: string; label: string } {
+export function getDailyFortunePrimaryAction(
+  status: DailyFortuneDto["status"],
+  locale: Locale = "zh"
+): { href: string; label: string } {
+  const dictionary = getDictionary(locale);
   if (status === "needs_profile") {
     return {
-      href: "/me",
-      label: "\u5b8c\u5584\u6211\u7684\u6863\u6848"
+      href: withLocale("/me", locale),
+      label: dictionary.home.primaryActions.needsProfile
     };
   }
   if (status === "needs_bazi_chart") {
     return {
-      href: "/charts/bazi",
-      label: "\u5b8c\u6210\u516b\u5b57\u6392\u76d8"
+      href: withLocale("/charts/bazi", locale),
+      label: dictionary.home.primaryActions.needsBaziChart
     };
   }
   return {
-    href: "/consult",
-    label: "\u5f00\u59cb AI \u547d\u7406\u5206\u6790"
+    href: withLocale("/consult", locale),
+    label: dictionary.home.primaryActions.ready
   };
 }

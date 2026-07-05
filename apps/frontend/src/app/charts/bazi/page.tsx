@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { CalendarDays, CircleDotDashed, Stars } from "lucide-react";
 import type { BaziChartDto, BirthInputV2, Gender } from "@metamystic/shared";
@@ -8,8 +9,11 @@ import { BaziChartCard } from "@/components/bazi/bazi-chart-card";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
 import { buildBirthInputV2 } from "@/lib/birth-input";
+import { getDictionary, getLocaleFromPathname, withLocale } from "@/lib/i18n";
 
 export default function BaziChartPage() {
+  const locale = getLocaleFromPathname(usePathname());
+  const dictionary = getDictionary(locale);
   const [year, setYear] = useState("1995");
   const [month, setMonth] = useState("05");
   const [day, setDay] = useState("20");
@@ -66,7 +70,7 @@ export default function BaziChartPage() {
   }
 
   return (
-    <MobileShell title={"\u547d\u76d8\u4e2d\u5fc3"}>
+    <MobileShell locale={locale} title={dictionary.pages.bazi}>
       <div className="space-y-4">
         <section className="mystic-card rounded-3xl p-4">
           <div className="flex items-center gap-3">
@@ -164,8 +168,8 @@ export default function BaziChartPage() {
         {chart ? <BaziChartCard chart={chart} /> : null}
 
         <div className="grid grid-cols-2 gap-3">
-          <FeatureTile href="/charts/ziwei" icon={<CircleDotDashed className="h-4 w-4" />} title={"\u7d2b\u5fae\u6597\u6570"} />
-          <FeatureTile href="/charts/astrology" icon={<Stars className="h-4 w-4" />} title={"\u661f\u76d8"} />
+          <FeatureTile href={withLocale("/charts/ziwei", locale)} icon={<CircleDotDashed className="h-4 w-4" />} title={"\u7d2b\u5fae\u6597\u6570"} />
+          <FeatureTile href={withLocale("/charts/astrology", locale)} icon={<Stars className="h-4 w-4" />} title={"\u661f\u76d8"} />
         </div>
       </div>
     </MobileShell>

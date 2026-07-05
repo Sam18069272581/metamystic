@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { Share2 } from "lucide-react";
-import { buildAbsoluteShareUrl, shareOrCopy, statusText, type SharePayload, type ShareStatus } from "@/lib/share";
+import { buildAbsoluteShareUrl, shareOrCopy, statusText, type SharePayload, type ShareStatus, type ShareStatusLabels } from "@/lib/share";
 
 export function ShareButton({
   className,
+  labels,
   path,
   text,
   title
 }: {
   className?: string;
+  labels?: ShareStatusLabels;
   path: string;
   text: string;
   title: string;
@@ -34,7 +36,7 @@ export function ShareButton({
       type="button"
     >
       <Share2 className="h-3.5 w-3.5" />
-      {statusText(status)}
+      {statusText(status, labels)}
     </button>
   );
 }
