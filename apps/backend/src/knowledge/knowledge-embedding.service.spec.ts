@@ -70,7 +70,7 @@ describe("KnowledgeEmbeddingService", () => {
 
     const ranked = await service.rank("杀印相生 专业", chunks, 2);
 
-    expect(ranked[0]?.id).toBe("vector-hit");
+    expect(ranked.map((chunk) => chunk.id)).toEqual(["vector-hit", "pattern"]);
   });
 
   it("embeds knowledge chunks with source, anchor, tags and content", async () => {

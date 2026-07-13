@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import type { ApiResponse, AuthSessionDto, AuthUserDto } from "@metamystic/shared";
 import { ok } from "../shared/api-response";
 import { getFrontendAppUrl } from "../config/public-app-url";
 import { AuthService } from "./auth.service";
-import { clearAuthCookies, readCookie, setAuthCookies } from "./auth-cookies";
+import { clearAuthCookies, readCookie, setAuthCookies, setOAuthStateCookie } from "./auth-cookies";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -41,7 +42,11 @@ export class AuthController {
   }
 
   @Post("logout")
-  logout(@Res({ passthrough: true }) response: Response): ApiResponse<{ success: true }> {
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<ApiResponse<{ success: true }>> {
+    await this.authService.revokeRefreshToken(readCookie(request.headers.cookie, "refresh_token") ?? "");
     clearAuthCookies(response);
     return ok({ success: true });
   }
@@ -54,17 +59,34 @@ export class AuthController {
 
   @Get("google")
   google(@Res() response: Response): void {
-    response.redirect(this.googleOAuth.getAuthorizationUrl());
+    const state = randomBytes(32).toString("base64url");
+    setOAuthStateCookie(response, state);
+    response.redirect(this.googleOAuth.getAuthorizationUrl(state));
   }
 
   @Get("google/callback")
   async googleCallback(
     @Query("code") code: string,
+    @Query("state") state: string,
+    @Req() request: Request,
     @Res() response: Response
   ): Promise<void> {
+    const expectedState = readCookie(request.headers.cookie, "oauth_state");
+    if (!isMatchingState(state, expectedState)) {
+      throw new UnauthorizedException("Invalid OAuth state");
+    }
     const profile = await this.googleOAuth.exchangeCode(code);
     const session = await this.authService.loginWithGoogle(profile);
     setAuthCookies(response, session);
     response.redirect(`${getFrontendAppUrl(process.env)}/me?auth=google`);
   }
+}
+
+function isMatchingState(actual: string | undefined, expected: string | undefined): boolean {
+  if (!actual || !expected) {
+    return false;
+  }
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
 }

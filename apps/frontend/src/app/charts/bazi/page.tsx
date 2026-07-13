@@ -1,20 +1,35 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { CalendarDays, CircleDotDashed, Stars } from "lucide-react";
-import type { BaziChartDto, Gender } from "@metamystic/shared";
+import type { BaziChartDto, BirthInputV2, Gender } from "@metamystic/shared";
 import { BaziChartCard } from "@/components/bazi/bazi-chart-card";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
+import { buildBirthInputV2 } from "@/lib/birth-input";
+import { getDictionary, getLocaleFromPathname, withLocale } from "@/lib/i18n";
 
 export default function BaziChartPage() {
+  const locale = getLocaleFromPathname(usePathname());
+  const dictionary = getDictionary(locale);
   const [year, setYear] = useState("1995");
   const [month, setMonth] = useState("05");
   const [day, setDay] = useState("20");
   const [hour, setHour] = useState("10");
   const [minute, setMinute] = useState("30");
   const [gender, setGender] = useState<Gender>("female");
+  const [birthTimezone, setBirthTimezone] = useState("Asia/Shanghai");
+  const [trueSolarTime, setTrueSolarTime] = useState(true);
+  const [lateZiHourRule, setLateZiHourRule] = useState<"nextDay" | "sameDay">("nextDay");
+  const [calendarType, setCalendarType] = useState<BirthInputV2["calendarType"]>("solar");
+  const [timePrecision, setTimePrecision] = useState<BirthInputV2["timePrecision"]>("exact");
+  const [dstDisambiguation, setDstDisambiguation] = useState<NonNullable<BirthInputV2["dstDisambiguation"]>>("reject");
+  const [lunarLeapMonth, setLunarLeapMonth] = useState(false);
+  const [birthPlace, setBirthPlace] = useState("北京");
+  const [latitude, setLatitude] = useState("39.9042");
+  const [longitude, setLongitude] = useState("116.4074");
   const [chart, setChart] = useState<BaziChartDto | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
@@ -25,12 +40,21 @@ export default function BaziChartPage() {
     try {
       const profileInput = {
         displayName: "\u547d\u4e3b",
-        birthTime: new Date(`${year}-${month}-${day}T${hour}:${minute}:00`).toISOString(),
-        birthTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        birthTimezone,
+        birthInput: buildBirthInputV2(`${year}-${month}-${day}T${timePrecision === "unknown" ? "12:00" : `${hour}:${minute}`}`, {
+          timezone: birthTimezone,
+          calendarType,
+          timePrecision,
+          trueSolarTime,
+          lateZiHourRule,
+          dstDisambiguation,
+          lunarLeapMonth,
+          location: { name: birthPlace, latitude: Number(latitude), longitude: Number(longitude) }
+        }),
         gender,
-        birthPlace: "\u5317\u4eac",
-        latitude: 39.9042,
-        longitude: 116.4074
+        birthPlace,
+        latitude: Number(latitude),
+        longitude: Number(longitude)
       };
       const user = await apiClient.me().catch(() => undefined);
       const profile = user
@@ -48,7 +72,7 @@ export default function BaziChartPage() {
   }
 
   return (
-    <MobileShell title={"\u547d\u76d8\u4e2d\u5fc3"}>
+    <MobileShell locale={locale} title={dictionary.pages.bazi}>
       <div className="space-y-4">
         <section className="mystic-card rounded-3xl p-4">
           <div className="flex items-center gap-3">
@@ -81,6 +105,69 @@ export default function BaziChartPage() {
               <option value="unknown">{"\u4e0d\u900f\u9732"}</option>
             </select>
           </label>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <input value={birthPlace} onChange={(event) => setBirthPlace(event.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="出生地" />
+            <input value={latitude} onChange={(event) => setLatitude(event.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="纬度" inputMode="decimal" />
+            <input value={longitude} onChange={(event) => setLongitude(event.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="经度" inputMode="decimal" />
+          </div>
+          <label className="mt-3 block text-xs text-white/55">
+            {"出生时区"}
+            <input
+              value={birthTimezone}
+              onChange={(event) => setBirthTimezone(event.target.value)}
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a850]/50"
+              placeholder="Asia/Shanghai"
+            />
+          </label>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-white/65">
+            <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <input type="checkbox" checked={trueSolarTime} onChange={(event) => setTrueSolarTime(event.target.checked)} />
+              {"真太阳时"}
+            </label>
+            <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <input
+                type="checkbox"
+                checked={lateZiHourRule === "nextDay"}
+                onChange={(event) => setLateZiHourRule(event.target.checked ? "nextDay" : "sameDay")}
+              />
+              {"晚子时换日"}
+            </label>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <label className="text-xs text-white/55">
+              {"历法"}
+              <select value={calendarType} onChange={(event) => setCalendarType(event.target.value as BirthInputV2["calendarType"])} className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white">
+                <option value="solar">{"阳历"}</option>
+                <option value="lunar">{"农历"}</option>
+              </select>
+            </label>
+            <label className="text-xs text-white/55">
+              {"时辰精度"}
+              <select value={timePrecision} onChange={(event) => setTimePrecision(event.target.value as BirthInputV2["timePrecision"])} className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white">
+                <option value="exact">{"精确时间"}</option>
+                <option value="hour">{"只知道时辰"}</option>
+                <option value="unknown">{"时辰未知"}</option>
+              </select>
+            </label>
+          </div>
+          <label className="mt-3 block text-xs text-white/55">
+            {"夏令时重复时刻"}
+            <select
+              value={dstDisambiguation}
+              onChange={(event) => setDstDisambiguation(event.target.value as NonNullable<BirthInputV2["dstDisambiguation"]>)}
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white"
+            >
+              <option value="reject">{"遇到歧义时停止并提示"}</option>
+              <option value="earlier">{"采用较早时刻"}</option>
+              <option value="later">{"采用较晚时刻"}</option>
+            </select>
+          </label>
+          {calendarType === "lunar" ? (
+            <label className="mt-3 flex items-center gap-2 text-xs text-white/65">
+              <input type="checkbox" checked={lunarLeapMonth} onChange={(event) => setLunarLeapMonth(event.target.checked)} />
+              {"闰月"}
+            </label>
+          ) : null}
           <button
             type="button"
             onClick={() => void submit()}
@@ -95,8 +182,8 @@ export default function BaziChartPage() {
         {chart ? <BaziChartCard chart={chart} /> : null}
 
         <div className="grid grid-cols-2 gap-3">
-          <FeatureTile href="/charts/ziwei" icon={<CircleDotDashed className="h-4 w-4" />} title={"\u7d2b\u5fae\u6597\u6570"} />
-          <FeatureTile href="/charts/astrology" icon={<Stars className="h-4 w-4" />} title={"\u661f\u76d8"} />
+          <FeatureTile href={withLocale("/charts/ziwei", locale)} icon={<CircleDotDashed className="h-4 w-4" />} title={"\u7d2b\u5fae\u6597\u6570"} />
+          <FeatureTile href={withLocale("/charts/astrology", locale)} icon={<Stars className="h-4 w-4" />} title={"\u661f\u76d8"} />
         </div>
       </div>
     </MobileShell>
@@ -125,7 +212,7 @@ function FeatureTile({ href, icon, title }: { href: string; icon: React.ReactNod
         </div>
         <div>
           <p className="text-sm font-semibold text-white/80">{title}</p>
-          <p className="mt-1 text-xs text-white/38">{"\u5df2\u63a5\u5165 MVP"}</p>
+          <p className="mt-1 text-xs text-white/38">{"实验功能 · 结果仅供预览"}</p>
         </div>
       </div>
     </Link>

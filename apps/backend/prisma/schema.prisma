@@ -43,20 +43,21 @@ enum AuthProvider {
 }
 
 model User {
-  id              String          @id @default(cuid())
-  anonymousUserId String?         @unique
-  email           String?         @unique
-  displayName     String?
-  avatarUrl       String?
-  role            UserRole        @default(USER)
-  emailVerifiedAt DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  profiles        Profile[]
-  identities      AuthIdentity[]
-  refreshTokens   RefreshToken[]
-  consultations   Consultation[]
+  id                    String                 @id @default(cuid())
+  anonymousUserId       String?                @unique
+  email                 String?                @unique
+  displayName           String?
+  avatarUrl             String?
+  role                  UserRole               @default(USER)
+  emailVerifiedAt       DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  profiles              Profile[]
+  identities            AuthIdentity[]
+  refreshTokens         RefreshToken[]
+  consultations         Consultation[]
   compatibilityReadings CompatibilityReading[]
+  aiUsageBuckets        AiUsageBucket[]
 }
 
 model AuthIdentity {
@@ -75,41 +76,53 @@ model AuthIdentity {
 }
 
 model RefreshToken {
-  id         String    @id @default(cuid())
-  userId     String
-  tokenHash  String    @unique
-  userAgent  String?
-  ipAddress  String?
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  userId            String
+  tokenHash         String    @unique
+  userAgent         String?
+  ipAddress         String?
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  familyId          String?
+  replacedByTokenId String?
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model Profile {
-  id              String         @id @default(cuid())
-  userId          String
-  label           String?
-  isDefault       Boolean        @default(false)
-  displayName     String?
-  birthTime       DateTime
-  birthTimezone   String
-  gender          Gender
-  birthPlace      String?
-  latitude        Float?
-  longitude       Float?
-  memorySignals   Json           @default("{}")
-  metadata        Json           @default("{}")
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  baziCharts      BaziChart[]
-  ziweiCharts     ZiweiChart[]
-  astrologyCharts AstrologyChart[]
-  consultations   Consultation[]
+  id                       String                 @id @default(cuid())
+  userId                   String
+  label                    String?
+  isDefault                Boolean                @default(false)
+  displayName              String?
+  birthTime                DateTime
+  birthTimezone            String
+  birthCalendarType        String                 @default("solar")
+  birthLocalDate           String?
+  birthLocalTime           String?
+  birthTimePrecision       String                 @default("exact")
+  trueSolarTime            Boolean                @default(false)
+  trueSolarCorrection      Float                  @default(0)
+  lateZiHourRule           String                 @default("sameDay")
+  birthDataVersion         Int                    @default(1)
+  birthInput               Json?
+  gender                   Gender
+  birthPlace               String?
+  latitude                 Float?
+  longitude                Float?
+  memorySignals            Json                   @default("{}")
+  metadata                 Json                   @default("{}")
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  user                     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baziCharts               BaziChart[]
+  ziweiCharts              ZiweiChart[]
+  astrologyCharts          AstrologyChart[]
+  consultations            Consultation[]
+  memoryEvents             ProfileMemoryEvent[]
   compatibilityReadingsAsA CompatibilityReading[] @relation("CompatibilityProfileA")
   compatibilityReadingsAsB CompatibilityReading[] @relation("CompatibilityProfileB")
 
@@ -117,10 +130,26 @@ model Profile {
   @@index([userId, createdAt])
 }
 
+model ProfileMemoryEvent {
+  id             String   @id @default(cuid())
+  profileId      String
+  consultationId String   @unique
+  payload        Json
+  createdAt      DateTime @default(now())
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+}
+
 model BaziChart {
   id              String         @id @default(cuid())
   profileId       String
   fingerprint     String?
+  engine          String         @default("legacy")
+  engineVersion   String         @default("1")
+  inputHash       String?
+  inputSnapshot   Json?
+  supersededAt    DateTime?
   dayMaster       String
   dayMasterStatus String
   mainPattern     String
@@ -136,105 +165,172 @@ model BaziChart {
 }
 
 model ZiweiChart {
-  id              String         @id @default(cuid())
-  profileId       String
-  lifePalace      String
-  bodyPalace      String
-  palaces         Json
-  summary         String
-  metadata        Json           @default("{}")
-  createdAt       DateTime       @default(now())
-  profile         Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  profileId     String
+  fingerprint   String?
+  engine        String    @default("legacy-seeded")
+  engineVersion String    @default("1")
+  inputSnapshot Json?
+  supersededAt  DateTime?
+  lifePalace    String
+  bodyPalace    String
+  palaces       Json
+  summary       String
+  metadata      Json      @default("{}")
+  createdAt     DateTime  @default(now())
+  profile       Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
+  @@unique([profileId, fingerprint])
   @@index([profileId, createdAt])
 }
 
 model AstrologyChart {
-  id               String         @id @default(cuid())
+  id               String    @id @default(cuid())
   profileId        String
+  fingerprint      String?
+  engine           String    @default("legacy-seeded")
+  engineVersion    String    @default("1")
+  inputSnapshot    Json?
+  supersededAt     DateTime?
   placements       Json
   houses           Json
   dominantElements Json
   summary          String
-  metadata         Json           @default("{}")
-  createdAt        DateTime       @default(now())
-  profile          Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  metadata         Json      @default("{}")
+  createdAt        DateTime  @default(now())
+  profile          Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
+  @@unique([profileId, fingerprint])
   @@index([profileId, createdAt])
 }
 
 model Consultation {
-  id              String                  @id @default(cuid())
-  userId          String
-  profileId       String
-  chartId         String
-  question        String
-  tone            ConsultationTone
-  status          ConsultationStatus       @default(pending)
-  summary         String?
-  metadata        Json                     @default("{}")
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  profile         Profile                  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  chart           BaziChart                @relation(fields: [chartId], references: [id], onDelete: Cascade)
-  messages        ConsultationMessage[]
+  id               String                @id @default(cuid())
+  userId           String
+  profileId        String
+  chartId          String
+  question         String
+  tone             ConsultationTone
+  status           ConsultationStatus    @default(pending)
+  idempotencyKey   String?
+  provider         String?
+  model            String?
+  promptVersion    String?
+  retrievalVersion String?
+  tokenUsage       Json?
+  errorCode        String?
+  locale           String                @default("zh")
+  accessMode       String                @default("public_beta")
+  charged          Boolean               @default(false)
+  accessRemaining  Int?
+  accessResetsAt   DateTime?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  summary          String?
+  metadata         Json                  @default("{}")
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile          Profile               @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  chart            BaziChart             @relation(fields: [chartId], references: [id], onDelete: Cascade)
+  messages         ConsultationMessage[]
 
+  @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([profileId, createdAt])
+  @@index([profileId, userId, createdAt])
+}
+
+model AiUsageBucket {
+  id          String   @id @default(cuid())
+  userId      String
+  feature     String
+  windowType  String
+  windowStart DateTime
+  used        Int      @default(0)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, feature, windowType, windowStart])
+  @@index([windowStart])
 }
 
 model ConsultationMessage {
-  id              String         @id @default(cuid())
-  consultationId  String
-  role            MessageRole
-  content         String
-  metadata        Json           @default("{}")
-  createdAt       DateTime       @default(now())
-  consultation    Consultation   @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  consultationId String
+  role           MessageRole
+  content        String
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
 
   @@index([consultationId, createdAt])
 }
 
 model CompatibilityReading {
-  id           String   @id @default(cuid())
-  userId       String
-  profileAId   String
-  profileBId   String
-  chartAId     String
-  chartBId     String
-  overallScore Int
-  level        String
-  reading      Json
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  profileA     Profile  @relation("CompatibilityProfileA", fields: [profileAId], references: [id], onDelete: Cascade)
-  profileB     Profile  @relation("CompatibilityProfileB", fields: [profileBId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  userId        String
+  profileAId    String
+  profileBId    String
+  chartAId      String
+  chartBId      String
+  fingerprint   String?
+  engineVersion String   @default("1")
+  overallScore  Int
+  level         String
+  reading       Json
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileA      Profile  @relation("CompatibilityProfileA", fields: [profileAId], references: [id], onDelete: Cascade)
+  profileB      Profile  @relation("CompatibilityProfileB", fields: [profileBId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, fingerprint])
   @@index([userId, createdAt])
   @@index([profileAId, createdAt])
   @@index([profileBId, createdAt])
 }
 
 model KnowledgeSource {
-  id              String         @id @default(cuid())
+  id              String           @id @default(cuid())
   title           String
   author          String?
   sourceType      String
-  metadata        Json           @default("{}")
-  createdAt       DateTime       @default(now())
+  edition         String?
+  license         String?
+  sourceUrl       String?
+  language        String           @default("zh")
+  reviewStatus    String           @default("draft")
+  reviewedAt      DateTime?
+  contentChecksum String?
+  contentVersion  String?
+  metadata        Json             @default("{}")
+  createdAt       DateTime         @default(now())
   chunks          KnowledgeChunk[]
+
+  @@index([reviewStatus])
 }
 
 model KnowledgeChunk {
-  id              String          @id @default(cuid())
-  sourceId        String
-  anchorId        String
-  content         String
-  embedding       Unsupported("vector(1536)")?
-  metadata        Json            @default("{}")
-  createdAt       DateTime        @default(now())
-  source          KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  id                  String                       @id @default(cuid())
+  sourceId            String
+  anchorId            String
+  content             String
+  embedding           Unsupported("vector(1536)")?
+  chapter             String?
+  pageReference       String?
+  domain              String                       @default("bazi")
+  topic               String                       @default("general")
+  tags                String[]                     @default([])
+  decisionScenarios   String[]                     @default([])
+  language            String                       @default("zh")
+  searchText          String                       @default("") @db.Text
+  qualityScore        Float                        @default(0.5)
+  embeddingModel      String?
+  embeddingDimensions Int?
+  metadata            Json                         @default("{}")
+  createdAt           DateTime                     @default(now())
+  source              KnowledgeSource              @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, anchorId])
+  @@index([domain, topic, language])
 }

@@ -1,4 +1,4 @@
-import { IsIn, IsString, Length } from "class-validator";
+import { IsIn, IsOptional, IsString, IsUUID, Length } from "class-validator";
 import type { ConsultationTone, CreateConsultationRequest } from "@metamystic/shared";
 
 export class CreateConsultationDto implements CreateConsultationRequest {
@@ -16,4 +16,17 @@ export class CreateConsultationDto implements CreateConsultationRequest {
 
   @IsIn(["strategic", "gentle"])
   tone!: ConsultationTone;
+
+  @IsOptional()
+  @IsUUID()
+  idempotencyKey?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 128)
+  anonymousUserId?: string;
+
+  @IsOptional()
+  @IsIn(["zh", "en"])
+  locale?: "zh" | "en";
 }

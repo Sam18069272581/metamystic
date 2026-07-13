@@ -12,6 +12,12 @@ describe("buildConsultationListItems", () => {
         question: "\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u5417\uff1f",
         tone: "strategic",
         status: "completed",
+        access: {
+          mode: "public_beta",
+          charged: false,
+          remaining: 29,
+          resetsAt: "2026-05-31T00:00:00.000Z"
+        },
         summary: "\u9002\u5408\u5c0f\u6b65\u63a8\u8fdb",
         createdAt: "2026-05-30T10:00:00.000Z"
       }

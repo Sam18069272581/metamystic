@@ -38,7 +38,7 @@ export class KnowledgeEmbeddingService {
         const vectorRanking = await this.vectorRepository?.findSimilar(queryEmbedding, limit);
 
         if (vectorRanking?.length) {
-          return vectorRanking;
+          return mergeHybridRankings(lexicalRanking, vectorRanking, limit);
         }
       } catch (error) {
         this.logger.warn(`Knowledge vector search failed; falling back to lexical ranking. ${String(error)}`);
@@ -63,6 +63,17 @@ export class KnowledgeEmbeddingService {
     } catch (error) {
       this.logger.warn(`Semantic knowledge rerank failed; falling back to lexical ranking. ${String(error)}`);
       return lexicalRanking;
+    }
+  }
+
+  async searchVector(query: string, limit: number): Promise<KnowledgeChunkDto[]> {
+    if (!this.isVectorSearchEnabled() || !this.vectorRepository || limit <= 0) return [];
+    try {
+      const queryEmbedding = await this.provider.embed(query);
+      return await this.vectorRepository.findSimilar(queryEmbedding, limit);
+    } catch (error) {
+      this.logger.warn(`Knowledge vector search failed; continuing without vector candidates. ${String(error)}`);
+      return [];
     }
   }
 
@@ -91,4 +102,27 @@ export class KnowledgeEmbeddingService {
     const tags = Array.isArray(chunk.metadata.tags) ? chunk.metadata.tags.map(String).join(" ") : "";
     return `${chunk.sourceTitle} ${chunk.anchorId} ${tags} ${chunk.content}`;
   }
+}
+
+function mergeHybridRankings(
+  lexical: KnowledgeChunkDto[],
+  vector: KnowledgeChunkDto[],
+  limit: number
+): KnowledgeChunkDto[] {
+  const merged = new Map<string, { chunk: KnowledgeChunkDto; score: number }>();
+  const add = (chunks: KnowledgeChunkDto[], weight: number) => {
+    chunks.forEach((chunk, index) => {
+      const previous = merged.get(chunk.id);
+      merged.set(chunk.id, {
+        chunk: previous?.chunk ?? chunk,
+        score: (previous?.score ?? 0) + weight / (index + 1)
+      });
+    });
+  };
+  add(vector, 0.65);
+  add(lexical, 0.35);
+  return [...merged.values()]
+    .sort((left, right) => right.score - left.score)
+    .slice(0, limit)
+    .map(({ chunk, score }) => ({ ...chunk, score: Number(score.toFixed(6)) }));
 }

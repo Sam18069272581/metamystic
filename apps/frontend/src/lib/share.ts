@@ -1,11 +1,20 @@
 export type ShareResult = "native" | "clipboard" | "unsupported";
 export type ShareStatus = "idle" | "copied" | "shared" | "unsupported";
 
+export type ShareStatusLabels = Record<ShareStatus, string>;
+
 export interface SharePayload {
   title: string;
   text: string;
   url: string;
 }
+
+const defaultShareStatusLabels: ShareStatusLabels = {
+  idle: "分享",
+  copied: "已复制",
+  shared: "已分享",
+  unsupported: "无法分享"
+};
 
 export function buildAbsoluteShareUrl(path: string, origin?: string): string {
   const baseOrigin = (origin ?? (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/$/, "");
@@ -32,15 +41,6 @@ export async function shareOrCopy(payload: SharePayload): Promise<ShareResult> {
   return "unsupported";
 }
 
-export function statusText(status: ShareStatus): string {
-  if (status === "copied") {
-    return "已复制";
-  }
-  if (status === "shared") {
-    return "已分享";
-  }
-  if (status === "unsupported") {
-    return "无法分享";
-  }
-  return "分享";
+export function statusText(status: ShareStatus, labels: ShareStatusLabels = defaultShareStatusLabels): string {
+  return labels[status];
 }

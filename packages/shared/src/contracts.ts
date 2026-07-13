@@ -1,12 +1,37 @@
 export type Gender = "female" | "male" | "non_binary" | "unknown";
 
 export type FiveElement = "wood" | "fire" | "earth" | "metal" | "water";
+export type BaziStrengthLevel = "veryWeak" | "weak" | "balanced" | "strong" | "veryStrong";
 
 export type AiSectionType = "verdict" | "logic" | "factors" | "advice" | "citation" | "disclaimer";
 
 export type ConsultationTone = "strategic" | "gentle";
 
+export interface AiAccessDto {
+  mode: "public_beta" | "metered" | "subscription";
+  charged: boolean;
+  remaining: number;
+  resetsAt: string;
+}
+
 export type UserRole = "USER" | "ADMIN";
+
+export interface BirthInputV2 {
+  calendarType: "solar" | "lunar";
+  localDate: string;
+  localTime?: string | undefined;
+  timezone: string;
+  location?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+  } | undefined;
+  timePrecision: "exact" | "hour" | "unknown";
+  trueSolarTime: boolean;
+  lateZiHourRule: "nextDay" | "sameDay";
+  dstDisambiguation?: "reject" | "earlier" | "later" | undefined;
+  lunarLeapMonth?: boolean | undefined;
+}
 
 export interface ApiSuccess<T> {
   status: "success";
@@ -27,12 +52,13 @@ export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 export interface UpsertProfileRequest {
   anonymousUserId: string;
   displayName?: string | undefined;
-  birthTime: string;
-  birthTimezone: string;
+  birthTime?: string | undefined;
+  birthTimezone?: string | undefined;
   gender: Gender;
   birthPlace?: string | undefined;
   latitude?: number | undefined;
   longitude?: number | undefined;
+  birthInput?: BirthInputV2 | undefined;
 }
 
 export interface UpsertUserProfileRequest extends Omit<UpsertProfileRequest, "anonymousUserId"> {}
@@ -42,12 +68,15 @@ export interface CreateUserProfileRequest extends UpsertUserProfileRequest {
   isDefault?: boolean | undefined;
 }
 
-export interface ProfileDto extends UpsertProfileRequest {
+export interface ProfileDto extends Omit<UpsertProfileRequest, "birthTime" | "birthTimezone"> {
   id: string;
+  birthTime: string;
+  birthTimezone: string;
   label?: string | undefined;
   isDefault?: boolean | undefined;
   createdAt: string;
   updatedAt: string;
+  needsBirthReview?: boolean | undefined;
 }
 
 export interface UserProfileListResponse {
@@ -121,6 +150,39 @@ export interface BaziChartDto {
   usefulGods?: FiveElement[] | undefined;
   unfavorableGods?: FiveElement[] | undefined;
   analysis?: {
+    ruleVersion?: string | undefined;
+    confidence?: number | undefined;
+    controversy?: string | undefined;
+    strengthLevel?: BaziStrengthLevel | undefined;
+    strengthEvidence?: Array<{
+      dimension: "season" | "roots" | "momentum" | "relations";
+      score: number;
+      maxScore: number;
+      evidence: string[];
+    }> | undefined;
+    usefulGodMethods?: Array<{
+      method: "扶抑" | "调候" | "格局" | "通关";
+      favorable: FiveElement[];
+      unfavorable: FiveElement[];
+      confidence: number;
+      evidence: string[];
+      conflictNote?: string | undefined;
+    }> | undefined;
+    relations?: Array<{
+      pillars: [string, string];
+      branches: [string, string];
+      type: "combine" | "clash" | "punishment" | "harm";
+      adjustment: number;
+      evidence: string;
+    }> | undefined;
+    decadeFortunes?: Array<{
+      name: string;
+      startAge: number;
+      endAge: number;
+      startYear: number;
+      endYear: number;
+      annualFortunes: Array<{ age: number; year: number; name: string }>;
+    }> | undefined;
     strengthScore: number;
     strengthLabel: string;
     strengthReasons: string[];
@@ -361,6 +423,9 @@ export interface CreateConsultationRequest {
   chartId: string;
   question: string;
   tone: ConsultationTone;
+  idempotencyKey?: string | undefined;
+  anonymousUserId?: string | undefined;
+  locale?: "zh" | "en" | undefined;
 }
 
 export interface ConsultationDto {
@@ -372,6 +437,7 @@ export interface ConsultationDto {
   status: "pending" | "streaming" | "completed" | "failed";
   summary?: string | undefined;
   createdAt: string;
+  access: AiAccessDto;
 }
 
 export interface ConsultationMessageDto {
@@ -431,13 +497,46 @@ export interface ConsultationListResponse {
 export interface KnowledgeChunkDto {
   id: string;
   sourceTitle: string;
+  sourceType?: string | undefined;
+  sourceAuthor?: string | undefined;
+  sourceEdition?: string | undefined;
+  sourceUrl?: string | undefined;
+  license?: string | undefined;
+  contentChecksum?: string | undefined;
+  contentVersion?: string | undefined;
+  reviewStatus?: "reviewed" | "published" | undefined;
   anchorId: string;
   content: string;
+  chapter?: string | undefined;
+  pageReference?: string | undefined;
+  domain?: string | undefined;
+  topic?: string | undefined;
+  tags?: string[] | undefined;
+  decisionScenarios?: string[] | undefined;
+  language?: string | undefined;
+  qualityScore?: number | undefined;
   score: number;
   metadata: Record<string, unknown>;
+}
+
+export interface KnowledgeCandidateScoreDto {
+  id: string;
+  tagScore?: number | undefined;
+  lexicalScore?: number | undefined;
+  vectorScore?: number | undefined;
+  finalScore: number;
+}
+
+export interface KnowledgeRetrievalTraceDto {
+  retrievalVersion: "hybrid-rrf-v2";
+  corpusVersion: string;
+  candidates: KnowledgeCandidateScoreDto[];
+  citations: string[];
 }
 
 export interface KnowledgeSearchResponse {
   query: string;
   chunks: KnowledgeChunkDto[];
+  retrievalVersion: "hybrid-rrf-v2";
+  trace: KnowledgeRetrievalTraceDto;
 }

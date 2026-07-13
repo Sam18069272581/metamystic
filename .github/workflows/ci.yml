@@ -8,6 +8,22 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/metamystic?schema=public
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: metamystic
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d metamystic"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
@@ -26,6 +42,9 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm --filter @metamystic/backend prisma:generate
+
+      - name: Apply database migrations
+        run: pnpm --filter @metamystic/backend prisma:deploy
 
       - name: Verify repository config
         run: pnpm verify:repo-config

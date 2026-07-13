@@ -117,8 +117,37 @@ describe("CompatibilityService", () => {
       })
     });
     expect(result.id).toBe("compat-1");
-    expect(result.overallScore).toBe(76);
+    expect(result.overallScore).toBe(77);
     expect(result.createdAt).toBe("2026-06-05T00:00:00.000Z");
+  });
+
+  it("recognizes meaningful gaps in normalized five-element ratios", async () => {
+    const normalizedA = { ...chartA, elements: { wood: 0.7, fire: 0.1, earth: 0.1, metal: 0.05, water: 0.05 } };
+    const normalizedB = { ...chartB, elements: { wood: 0.1, fire: 0.1, earth: 0.1, metal: 0.25, water: 0.45 } };
+    let writtenReading: Record<string, unknown> | undefined;
+    const prisma = {
+      profile: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: "profile-a", userId: "user-1", label: "self", displayName: "Self" },
+          { id: "profile-b", userId: "user-1", label: "partner", displayName: "Partner" }
+        ])
+      },
+      compatibilityReading: {
+        create: vi.fn(async ({ data }: { data: { reading: Record<string, unknown> } }) => {
+          writtenReading = data.reading;
+          return { id: "compat-normalized", createdAt: new Date("2026-06-05T00:00:00.000Z") };
+        })
+      }
+    };
+    const service = new CompatibilityService(
+      prisma as never,
+      { createChart: vi.fn().mockResolvedValueOnce(normalizedA).mockResolvedValueOnce(normalizedB) } as never
+    );
+
+    await service.analyzeUserProfiles("user-1", { profileAId: "profile-a", profileBId: "profile-b" });
+
+    const dimensions = writtenReading?.dimensions as { fiveElement: { score: number } };
+    expect(dimensions.fiveElement.score).toBeGreaterThan(64);
   });
 
   it("lists saved readings for the current user", async () => {

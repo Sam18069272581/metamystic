@@ -2,62 +2,63 @@ import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/commo
 import type { ZiweiChartDto, ZiweiPalaceDto, ZiweiPalaceName } from "@metamystic/shared";
 import { asPrismaJson } from "../prisma/prisma-json";
 import { PrismaService } from "../prisma/prisma.service";
-
-const palaceNames: ZiweiPalaceName[] = [
-  "life",
-  "siblings",
-  "spouse",
-  "children",
-  "wealth",
-  "health",
-  "travel",
-  "friends",
-  "career",
-  "property",
-  "fortune",
-  "parents"
-];
-
-const palaceLabels: Record<ZiweiPalaceName, string> = {
-  life: "\u547d\u5bab",
-  siblings: "\u5144\u5f1f",
-  spouse: "\u592b\u59bb",
-  children: "\u5b50\u5973",
-  wealth: "\u8d22\u5e1b",
-  health: "\u75be\u5384",
-  travel: "\u8fc1\u79fb",
-  friends: "\u4ea4\u53cb",
-  career: "\u5b98\u7984",
-  property: "\u7530\u5b85",
-  fortune: "\u798f\u5fb7",
-  parents: "\u7236\u6bcd"
-};
-
-const branches = ["\u5b50", "\u4e11", "\u5bc5", "\u536f", "\u8fb0", "\u5df3", "\u5348", "\u672a", "\u7533", "\u9149", "\u620c", "\u4ea5"];
-const majorStars = ["\u7d2b\u5fae", "\u5929\u673a", "\u592a\u9633", "\u6b66\u66f2", "\u5929\u540c", "\u5ec9\u8d1e", "\u5929\u5e9c", "\u592a\u9634", "\u8d2a\u72fc", "\u5de8\u95e8", "\u5929\u76f8", "\u5929\u6881", "\u4e03\u6740", "\u7834\u519b"];
-const minorStars = ["\u6587\u660c", "\u6587\u66f2", "\u5de6\u8f85", "\u53f3\u5f3c", "\u5929\u9b41", "\u5929\u94ba", "\u7984\u5b58", "\u5929\u9a6c"];
+import { createHash } from "node:crypto";
+import { getZonedParts } from "../profile/birth-input";
+import { IztroZiweiEngine } from "./iztro-ziwei-engine";
 
 @Injectable()
 export class ZiweiService {
+  private readonly engine = new IztroZiweiEngine();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async createChart(profileId: string): Promise<ZiweiChartDto> {
     const profile = await this.prisma.profile.findUnique({
       where: { id: profileId },
-      select: { id: true, birthTime: true, gender: true }
+      select: {
+        id: true, birthTime: true, birthTimezone: true, birthLocalDate: true, birthLocalTime: true,
+        gender: true, lateZiHourRule: true, birthDataVersion: true
+      }
     });
     if (!profile) {
       throw new NotFoundException("Profile not found");
     }
-    const calculated = this.calculate(profile.id, profile.birthTime);
+    const local = profile.birthLocalDate && profile.birthLocalTime
+      ? { date: profile.birthLocalDate, time: profile.birthLocalTime }
+      : toLocalDateTime(profile.birthTime, profile.birthTimezone);
+    const fingerprint = createHash("sha256").update(JSON.stringify({
+      local, gender: profile.gender, lateZiHourRule: profile.lateZiHourRule, birthDataVersion: profile.birthDataVersion,
+      engine: "iztro", engineVersion: "2.5.8"
+    })).digest("hex");
+    const existing = await this.prisma.ziweiChart.findUnique({
+      where: { profileId_fingerprint: { profileId, fingerprint } }
+    });
+    if (existing) {
+      return toStoredZiweiChart(existing);
+    }
+    const engineResult = this.engine.calculate({
+      profileId: profile.id,
+      localDate: local.date,
+      localTime: local.time,
+      gender: profile.gender,
+      lateZiHourRule: profile.lateZiHourRule === "nextDay" ? "nextDay" : "sameDay"
+    });
+    const calculated = {
+      ...engineResult,
+      analysis: buildZiweiAnalysis(engineResult.palaces, engineResult.lifePalace, engineResult.bodyPalace)
+    };
     const chart = await this.prisma.ziweiChart.create({
       data: {
         profileId: profile.id,
+        fingerprint,
+        engine: "iztro",
+        engineVersion: "2.5.8",
+        inputSnapshot: asPrismaJson({ localDate: local.date, localTime: local.time, gender: profile.gender }),
         lifePalace: calculated.lifePalace,
         bodyPalace: calculated.bodyPalace,
         palaces: asPrismaJson(calculated.palaces),
         summary: calculated.summary,
-        metadata: asPrismaJson({ analysis: calculated.analysis })
+        metadata: asPrismaJson({ ...calculated.metadata, analysis: calculated.analysis })
       }
     });
     return {
@@ -81,41 +82,24 @@ export class ZiweiService {
     return this.createChart(profile.id);
   }
 
-  private calculate(profileId: string, birthTime: Date): ZiweiChartDto {
-    const seed = Math.abs(
-      birthTime.getUTCFullYear() * 13 +
-        (birthTime.getUTCMonth() + 1) * 17 +
-        birthTime.getUTCDate() * 19 +
-        birthTime.getUTCHours() * 23
-    );
-    const lifeIndex = seed % 12;
-    const bodyIndex = (lifeIndex + birthTime.getUTCHours()) % 12;
-    const palaces: ZiweiPalaceDto[] = palaceNames.map((name, index) => ({
-      name,
-      label: palaceLabels[name],
-      earthlyBranch: branches[(lifeIndex + index) % branches.length] ?? "\u5b50",
-      majorStars: [
-        majorStars[(seed + index) % majorStars.length] ?? "\u7d2b\u5fae",
-        majorStars[(seed + index + 6) % majorStars.length] ?? "\u5929\u5e9c"
-      ],
-      minorStars: [
-        minorStars[(seed + index) % minorStars.length] ?? "\u6587\u660c",
-        minorStars[(seed + index + 3) % minorStars.length] ?? "\u53f3\u5f3c"
-      ],
-      ageRange: `${index * 10 + 2}-${index * 10 + 11}`
-    }));
+}
 
-    return {
-      id: `ziwei-${profileId}-${seed}`,
-      profileId,
-      lifePalace: palaceNames[lifeIndex] ?? "life",
-      bodyPalace: palaceNames[bodyIndex] ?? "life",
-      palaces,
-      analysis: buildZiweiAnalysis(palaces, palaceNames[lifeIndex] ?? "life", palaceNames[bodyIndex] ?? "life"),
-      summary: "\u7d2b\u5fae MVP \u76d8\u9762\u5df2\u751f\u6210\uff0c\u5f53\u524d\u7528\u4e8e UI \u548c AI \u4e0a\u4e0b\u6587\uff0c\u540e\u7eed\u63a5\u5165\u6b63\u5f0f\u6392\u76d8\u6cd5\u3002",
-      createdAt: new Date().toISOString()
-    };
-  }
+function toLocalDateTime(date: Date, timezone: string): { date: string; time: string } {
+  const p = getZonedParts(date, timezone);
+  return {
+    date: `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`,
+    time: `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`
+  };
+}
+
+function toStoredZiweiChart(chart: { id: string; profileId: string; lifePalace: string; bodyPalace: string; palaces: unknown; summary: string; metadata: unknown; createdAt: Date }): ZiweiChartDto {
+  const metadata = chart.metadata && typeof chart.metadata === "object" ? chart.metadata as Record<string, unknown> : {};
+  return {
+    id: chart.id, profileId: chart.profileId,
+    lifePalace: chart.lifePalace as ZiweiPalaceName, bodyPalace: chart.bodyPalace as ZiweiPalaceName,
+    palaces: chart.palaces as ZiweiPalaceDto[], summary: chart.summary,
+    analysis: metadata.analysis as ZiweiChartDto["analysis"], createdAt: chart.createdAt.toISOString()
+  };
 }
 
 function buildZiweiAnalysis(

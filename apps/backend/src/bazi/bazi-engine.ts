@@ -1,11 +1,20 @@
 import type { BaziChartDto, BaziPillarDto, FiveElement } from "@metamystic/shared";
-import { SolarTime } from "tyme4ts";
+import {
+  ChildLimit,
+  DefaultEightCharProvider,
+  Gender as TymeGender,
+  LunarSect2EightCharProvider,
+  SolarTime
+} from "tyme4ts";
 
 export interface BaziEngineInput {
   profileId: string;
   birthTime: Date;
   birthTimezone: string;
   gender: string;
+  trueSolarCorrectionMinutes?: number;
+  lateZiHourRule?: "nextDay" | "sameDay";
+  timePrecision?: "exact" | "hour" | "unknown";
 }
 
 export interface CalculatedBaziChart extends Omit<BaziChartDto, "id" | "createdAt"> {
@@ -166,7 +175,10 @@ interface TymePillarLike {
 
 export class TymeBaziEngine implements BaziEngine {
   calculate(input: BaziEngineInput): CalculatedBaziChart {
-    const local = this.getDateParts(input.birthTime);
+    const originalLocal = this.getDateParts(input.birthTime, input.birthTimezone);
+    const correctedLocal = this.applyMinuteCorrection(originalLocal, input.trueSolarCorrectionMinutes ?? 0);
+    const lateZiHourApplied = input.lateZiHourRule === "nextDay" && correctedLocal.hour === 23;
+    const local = correctedLocal;
     const solarTime = SolarTime.fromYmdHms(
       local.year,
       local.month,
@@ -175,7 +187,10 @@ export class TymeBaziEngine implements BaziEngine {
       local.minute,
       local.second
     );
-    const eightChar = solarTime.getLunarHour().getEightChar();
+    const lunarHour = solarTime.getLunarHour();
+    const eightChar = input.lateZiHourRule === "sameDay"
+      ? new LunarSect2EightCharProvider().getEightChar(lunarHour)
+      : new DefaultEightCharProvider().getEightChar(lunarHour);
     const dayStem = eightChar.getDay().getHeavenStem();
     const pillars = {
       year: this.toPillar(eightChar.getYear() as TymePillarLike, dayStem),
@@ -183,12 +198,14 @@ export class TymeBaziEngine implements BaziEngine {
       day: this.toPillar(eightChar.getDay() as TymePillarLike, dayStem),
       hour: this.toPillar(eightChar.getHour() as TymePillarLike, dayStem)
     };
-    const elements = this.calculateElements([
+    const hourPillarReliable = input.timePrecision !== "unknown";
+    const calculationPillars = [
       eightChar.getYear() as TymePillarLike,
       eightChar.getMonth() as TymePillarLike,
-      eightChar.getDay() as TymePillarLike,
-      eightChar.getHour() as TymePillarLike
-    ]);
+      eightChar.getDay() as TymePillarLike
+    ];
+    if (hourPillarReliable) calculationPillars.push(eightChar.getHour() as TymePillarLike);
+    const elements = this.calculateElements(calculationPillars);
     const dayMaster = dayStem.getName();
     const dayElement = this.toFiveElement(dayStem.getElement().getName());
     const supportiveElement = generatingElement[dayElement];
@@ -196,6 +213,7 @@ export class TymeBaziEngine implements BaziEngine {
     const dayMasterStatus: BaziChartDto["dayMasterStatus"] =
       supportScore >= 0.47 ? "strong" : supportScore <= 0.35 ? "weak" : "balanced";
     const dominantElement = this.getDominantElement(elements);
+    const fortune = this.buildFortuneTimeline(solarTime, input.gender);
 
     return {
       profileId: input.profileId,
@@ -205,7 +223,8 @@ export class TymeBaziEngine implements BaziEngine {
       pillars,
       elements,
       metadata: {
-        engine: "tyme4ts",
+        engine: "tyme4ts+bazi-rules",
+        ruleVersion: "bazi-rules-3.0.0",
         source: "6tail/tyme4ts",
         license: "MIT",
         birthTimezone: input.birthTimezone,
@@ -214,6 +233,15 @@ export class TymeBaziEngine implements BaziEngine {
         supportiveElement,
         supportScore,
         dominantElement,
+        trueSolarCorrectionMinutes: input.trueSolarCorrectionMinutes ?? 0,
+        lateZiHourRule: input.lateZiHourRule ?? "sameDay",
+        lateZiHourApplied,
+        timePrecision: input.timePrecision ?? "exact",
+        hourPillarReliable,
+        fortuneProvider: "tyme4ts/ChildLimit",
+        fortuneStartTime: fortune.startTime,
+        fortuneDirection: fortune.forward === undefined ? "unknown" : fortune.forward ? "forward" : "backward",
+        decadeFortunes: fortune.decades,
         fetalOrigin: eightChar.getFetalOrigin().getName(),
         fetalBreath: eightChar.getFetalBreath().getName(),
         ownSign: eightChar.getOwnSign().getName(),
@@ -222,7 +250,7 @@ export class TymeBaziEngine implements BaziEngine {
     };
   }
 
-  private getDateParts(date: Date): {
+  private getDateParts(date: Date, timeZone: string): {
     year: number;
     month: number;
     day: number;
@@ -230,13 +258,38 @@ export class TymeBaziEngine implements BaziEngine {
     minute: number;
     second: number;
   } {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(date);
+    const read = (type: Intl.DateTimeFormatPartTypes): number => {
+      const value = parts.find((part) => part.type === type)?.value;
+      if (!value) {
+        throw new RangeError(`Unable to resolve ${type} in timezone ${timeZone}`);
+      }
+      return Number(value);
+    };
     return {
-      year: date.getUTCFullYear(),
-      month: date.getUTCMonth() + 1,
-      day: date.getUTCDate(),
-      hour: date.getUTCHours(),
-      minute: date.getUTCMinutes(),
-      second: date.getUTCSeconds()
+      year: read("year"),
+      month: read("month"),
+      day: read("day"),
+      hour: read("hour"),
+      minute: read("minute"),
+      second: read("second")
+    };
+  }
+
+  private applyMinuteCorrection(parts: { year: number; month: number; day: number; hour: number; minute: number; second: number }, minutes: number) {
+    const corrected = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute + minutes, parts.second));
+    return {
+      year: corrected.getUTCFullYear(), month: corrected.getUTCMonth() + 1, day: corrected.getUTCDate(),
+      hour: corrected.getUTCHours(), minute: corrected.getUTCMinutes(), second: corrected.getUTCSeconds()
     };
   }
 
@@ -293,5 +346,43 @@ export class TymeBaziEngine implements BaziEngine {
       (dominant, element) => (distribution[element] > distribution[dominant] ? element : dominant),
       "wood"
     );
+  }
+
+  private buildFortuneTimeline(birthTime: SolarTime, gender: string): {
+    startTime?: string;
+    forward?: boolean;
+    decades: NonNullable<NonNullable<BaziChartDto["analysis"]>["decadeFortunes"]>;
+  } {
+    if (gender !== "female" && gender !== "male") return { decades: [] };
+    const childLimit = ChildLimit.fromSolarTime(
+      birthTime,
+      gender === "male" ? TymeGender.MAN : TymeGender.WOMAN
+    );
+    const firstDecade = childLimit.getStartDecadeFortune();
+    const decades = Array.from({ length: 8 }, (_, decadeIndex) => {
+      const decade = firstDecade.next(decadeIndex);
+      const firstFortune = decade.getStartFortune();
+      return {
+        name: decade.getName(),
+        startAge: decade.getStartAge(),
+        endAge: decade.getEndAge(),
+        startYear: decade.getStartSixtyCycleYear().getYear(),
+        endYear: decade.getEndSixtyCycleYear().getYear(),
+        annualFortunes: Array.from({ length: 10 }, (_, yearIndex) => {
+          const annual = firstFortune.next(yearIndex);
+          return {
+            age: annual.getAge(),
+            year: annual.getSixtyCycleYear().getYear(),
+            name: annual.getName()
+          };
+        })
+      };
+    });
+    const start = childLimit.getStartTime();
+    return {
+      startTime: `${start.getYear()}-${String(start.getMonth()).padStart(2, "0")}-${String(start.getDay()).padStart(2, "0")}T${String(start.getHour()).padStart(2, "0")}:${String(start.getMinute()).padStart(2, "0")}:${String(start.getSecond()).padStart(2, "0")}`,
+      forward: childLimit.isForward(),
+      decades
+    };
   }
 }

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import type {
   AuthUserDto,
@@ -21,10 +22,14 @@ import { buildAccountNextStep, type AccountNextStep } from "./account-next-step"
 import { ShareButton } from "@/components/share/share-button";
 import { MobileShell } from "@/components/shell/mobile-shell";
 import { apiClient } from "@/lib/api-client";
-import { getApiBaseUrl } from "@/lib/public-url";
+import { getClientApiBaseUrl } from "@/lib/public-url";
+import { buildBirthInputV2 } from "@/lib/birth-input";
+import { getDictionary, getLocaleFromPathname } from "@/lib/i18n";
 
 export default function MePage() {
-  const authActions = getAccountAuthActions(getApiBaseUrl(process.env));
+  const locale = getLocaleFromPathname(usePathname());
+  const dictionary = getDictionary(locale);
+  const authActions = getAccountAuthActions(getClientApiBaseUrl());
   const logoutAction = getAccountLogoutAction();
   const [authSource, setAuthSource] = useState<string | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);
@@ -93,11 +98,15 @@ export default function MePage() {
     setSavingProfile(true);
     setError(undefined);
     try {
+      const { birthTime: localBirthTime, ...profileFields } = form;
       await apiClient.createMyProfile({
-        ...form,
+        ...profileFields,
         label: form.label?.trim() || form.displayName?.trim() || "\u65b0\u6863\u6848",
         displayName: form.displayName?.trim() || undefined,
-        birthTime: new Date(form.birthTime).toISOString()
+        birthInput: buildBirthInputV2(localBirthTime ?? "", {
+          timezone: form.birthTimezone ?? "Asia/Shanghai",
+          lateZiHourRule: "nextDay"
+        })
       });
       setForm({
         label: "",
@@ -200,7 +209,7 @@ export default function MePage() {
   }
 
   return (
-    <MobileShell title={"\u4e2a\u4eba\u8d44\u6599"}>
+    <MobileShell locale={locale} title={dictionary.pages.me}>
       <div className="space-y-4">
         <section className="mystic-card rounded-3xl p-5">
           <div className="flex items-center gap-3">
@@ -311,7 +320,7 @@ export default function MePage() {
               className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-amber-200/40"
               required
               type="datetime-local"
-              value={form.birthTime}
+              value={form.birthTime ?? ""}
               onChange={(event) => setForm((current) => ({ ...current, birthTime: event.target.value }))}
             />
             <div className="grid grid-cols-2 gap-2">
@@ -636,6 +645,7 @@ function ProfileRow({
         <p className="mt-1 truncate text-xs text-white/42">
           {`${new Date(profile.birthTime).toLocaleString("zh-CN")} · ${profile.gender}`}
         </p>
+        {profile.needsBirthReview ? <p className="mt-1 text-[11px] text-amber-200/70">{"请重新确认出生时区与出生地"}</p> : null}
       </div>
       <button
         className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/55 transition hover:border-amber-200/30 hover:text-amber-100 disabled:opacity-50"

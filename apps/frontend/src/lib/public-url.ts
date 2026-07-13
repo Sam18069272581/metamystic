@@ -17,6 +17,13 @@ export function getApiBaseUrl(env: PublicEnv): string {
   return env.NODE_ENV === "production" ? DEFAULT_PRODUCTION_API_BASE_URL : DEFAULT_LOCAL_API_BASE_URL;
 }
 
+export function getClientApiBaseUrl(): string {
+  return getApiBaseUrl({
+    NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+    NODE_ENV: process.env.NODE_ENV
+  });
+}
+
 export function getSiteUrl(env: PublicEnv): string {
   const rawUrl = env.NEXT_PUBLIC_APP_URL ?? DEFAULT_SITE_URL;
   try {

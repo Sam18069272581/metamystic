@@ -1,5 +1,6 @@
 import type { BaziChartDto, BaziPillarDto, FiveElement } from "@metamystic/shared";
 import type { CalculatedBaziChart } from "./bazi-engine";
+import { analyzeBaziRulesV3 } from "./bazi-rules-v3";
 import { calculateBaziShensha } from "./bazi-shensha";
 
 const stems = ["\u7532", "\u4e59", "\u4e19", "\u4e01", "\u620a", "\u5df1", "\u5e9a", "\u8f9b", "\u58ec", "\u7678"] as const;
@@ -111,17 +112,53 @@ const seasonalSupportLabels: Record<
 export function enrichProfessionalBaziChart<T extends CalculatedBaziChart | BaziChartDto>(
   chart: T
 ): T & Pick<BaziChartDto, "pillars" | "usefulGods" | "unfavorableGods" | "analysis" | "metadata"> {
-  const usefulGods = inferUsefulGods(chart.dayMaster, chart.dayMasterStatus);
-  const unfavorableGods = inferUnfavorableGods(chart.dayMaster, chart.dayMasterStatus);
+  const hourPillarReliable = chart.metadata?.hourPillarReliable !== false;
   const pillars = enrichPillarsWithShensha({
     year: enrichPillar(chart.pillars.year, chart.dayMaster),
     month: enrichPillar(chart.pillars.month, chart.dayMaster),
     day: enrichPillar(chart.pillars.day, chart.dayMaster),
     hour: enrichPillar(chart.pillars.hour, chart.dayMaster)
-  }, chart.dayMaster);
-  const analysis = buildBaziAnalysis({ ...chart, pillars }, usefulGods, unfavorableGods);
+  }, chart.dayMaster, hourPillarReliable);
+  const rules = analyzeBaziRulesV3({ dayMaster: chart.dayMaster, pillars, hourPillarReliable });
+  const dayMasterStatus = toLegacyStatus(rules.strength.level);
+  const mainPattern = rules.pattern.name;
+  const usefulGods = rules.usefulGodMethods[0]?.favorable ?? inferUsefulGods(chart.dayMaster, dayMasterStatus);
+  const unfavorableGods = rules.usefulGodMethods[0]?.unfavorable ?? inferUnfavorableGods(chart.dayMaster, dayMasterStatus);
+  const legacyAnalysis = buildBaziAnalysis(
+    { ...chart, pillars, dayMasterStatus, mainPattern },
+    usefulGods,
+    unfavorableGods
+  );
+  const analysis: NonNullable<BaziChartDto["analysis"]> = {
+    ...legacyAnalysis,
+    ruleVersion: rules.ruleVersion,
+    confidence: rules.strength.confidence,
+    controversy: rules.strength.controversy,
+    strengthLevel: rules.strength.level,
+    strengthScore: rules.strength.score,
+    strengthLabel: strengthLabel(rules.strength.level),
+    strengthReasons: rules.strength.evidence.flatMap((item) => item.evidence),
+    strengthEvidence: rules.strength.evidence,
+    usefulGodMethods: rules.usefulGodMethods,
+    relations: rules.relations,
+    decadeFortunes: readDecadeFortunes(chart.metadata?.decadeFortunes),
+    strength: legacyAnalysis.strength ? {
+      ...legacyAnalysis.strength,
+      score: rules.strength.score,
+      level: strengthLabel(rules.strength.level),
+      reasons: rules.strength.evidence.flatMap((item) => item.evidence)
+    } : undefined,
+    pattern: {
+      name: rules.pattern.name,
+      confidence: rules.pattern.confidence,
+      evidence: rules.pattern.evidence,
+      strategySummary: legacyAnalysis.pattern?.strategySummary ?? "格局与喜用分法并列参考。"
+    }
+  };
   return {
     ...chart,
+    dayMasterStatus,
+    mainPattern,
     pillars,
     usefulGods,
     unfavorableGods,
@@ -132,10 +169,33 @@ export function enrichProfessionalBaziChart<T extends CalculatedBaziChart | Bazi
       professional: {
         usefulGods,
         unfavorableGods,
-        note: "\u559c\u7528\u795e\u4e3a MVP \u89c4\u5219\u63a8\u65ad\uff0c\u6b63\u5f0f\u7248\u9700\u7ed3\u5408\u6708\u4ee4\u3001\u683c\u5c40\u3001\u901a\u5173\u548c\u8c03\u5019\u7ec6\u5316\u3002"
+        ruleVersion: rules.ruleVersion,
+        note: "喜用神按扶抑、调候、格局、通关四法分别展示；冲突时不强行合并。"
       }
     }
   } as T & Pick<BaziChartDto, "pillars" | "usefulGods" | "unfavorableGods" | "analysis" | "metadata">;
+}
+
+function toLegacyStatus(level: NonNullable<BaziChartDto["analysis"]>["strengthLevel"]): BaziChartDto["dayMasterStatus"] {
+  if (level === "veryWeak" || level === "weak") return "weak";
+  if (level === "veryStrong" || level === "strong") return "strong";
+  return "balanced";
+}
+
+function strengthLabel(level: NonNullable<BaziChartDto["analysis"]>["strengthLevel"]): string {
+  return {
+    veryWeak: "极弱",
+    weak: "身弱",
+    balanced: "中和",
+    strong: "身强",
+    veryStrong: "极强"
+  }[level ?? "balanced"];
+}
+
+function readDecadeFortunes(value: unknown): NonNullable<BaziChartDto["analysis"]>["decadeFortunes"] {
+  return Array.isArray(value)
+    ? value as NonNullable<BaziChartDto["analysis"]>["decadeFortunes"]
+    : undefined;
 }
 
 export function getTenGod(dayStem: string, targetStem: string): string {
@@ -175,14 +235,15 @@ function enrichPillar(pillar: BaziPillarDto, dayMaster: string): BaziPillarDto {
 
 function enrichPillarsWithShensha(
   pillars: BaziChartDto["pillars"],
-  dayMaster: string
+  dayMaster: string,
+  hourPillarReliable: boolean
 ): BaziChartDto["pillars"] {
   const calculated = calculateBaziShensha(pillars, dayMaster);
   return {
     year: { ...pillars.year, shensha: mergeShensha(pillars.year.shensha, calculated.year) },
     month: { ...pillars.month, shensha: mergeShensha(pillars.month.shensha, calculated.month) },
     day: { ...pillars.day, shensha: mergeShensha(pillars.day.shensha, calculated.day) },
-    hour: { ...pillars.hour, shensha: mergeShensha(pillars.hour.shensha, calculated.hour) }
+    hour: { ...pillars.hour, shensha: hourPillarReliable ? mergeShensha(pillars.hour.shensha, calculated.hour) : [] }
   };
 }
 
@@ -358,7 +419,9 @@ function buildTenGodDistribution(chart: CalculatedBaziChart | BaziChartDto): Non
   const add = (tenGod: string, weight: number): void => {
     weights[tenGod] = Number(((weights[tenGod] ?? 0) + weight).toFixed(2));
   };
-  const pillars = [chart.pillars.year, chart.pillars.month, chart.pillars.day, chart.pillars.hour];
+  const pillars = chart.metadata?.hourPillarReliable === false
+    ? [chart.pillars.year, chart.pillars.month, chart.pillars.day]
+    : [chart.pillars.year, chart.pillars.month, chart.pillars.day, chart.pillars.hour];
 
   for (const [index, pillar] of pillars.entries()) {
     if (index !== 2) {

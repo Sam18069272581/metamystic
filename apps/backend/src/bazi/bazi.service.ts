@@ -6,6 +6,9 @@ import { PrismaService } from "../prisma/prisma.service";
 import type { BaziEngine } from "./bazi-engine";
 import { enrichProfessionalBaziChart } from "./professional-bazi";
 
+const BAZI_ENGINE_VERSION = "3.0.0";
+const BAZI_ENGINE_NAME = "tyme4ts+bazi-rules";
+
 @Injectable()
 export class BaziService {
   constructor(
@@ -36,7 +39,10 @@ export class BaziService {
       profileId,
       birthTime: profile.birthTime,
       birthTimezone: profile.birthTimezone,
-      gender: profile.gender
+      gender: profile.gender,
+      trueSolarCorrectionMinutes: profile.trueSolarCorrection ?? 0,
+      lateZiHourRule: profile.lateZiHourRule === "nextDay" ? "nextDay" : "sameDay",
+      timePrecision: profile.birthTimePrecision === "unknown" ? "unknown" : profile.birthTimePrecision === "hour" ? "hour" : "exact"
     }));
 
     try {
@@ -44,6 +50,19 @@ export class BaziService {
         data: {
           profileId,
           fingerprint,
+          engine: BAZI_ENGINE_NAME,
+          engineVersion: BAZI_ENGINE_VERSION,
+          inputHash: fingerprint,
+          inputSnapshot: asPrismaJson({
+            birthTime: profile.birthTime.toISOString(),
+            birthTimezone: profile.birthTimezone,
+            birthDataVersion: profile.birthDataVersion ?? 1,
+            trueSolarCorrection: profile.trueSolarCorrection ?? 0,
+            lateZiHourRule: profile.lateZiHourRule ?? "sameDay",
+            dstDisambiguation: readStringProperty(profile.birthInput, "dstDisambiguation") ?? "reject",
+            timePrecision: profile.birthTimePrecision ?? "exact",
+            gender: profile.gender
+          }),
           dayMaster: calculated.dayMaster,
           dayMasterStatus: calculated.dayMasterStatus,
           mainPattern: calculated.mainPattern,
@@ -97,12 +116,23 @@ function createBaziChartFingerprint(profile: {
   birthTime: Date;
   birthTimezone: string;
   gender: string;
+  birthDataVersion?: number;
+  trueSolarCorrection?: number;
+  lateZiHourRule?: string;
+  birthTimePrecision?: string;
+  birthInput?: unknown;
 }): string {
   return createHash("sha256")
     .update(JSON.stringify({
       birthTime: profile.birthTime.toISOString(),
       birthTimezone: profile.birthTimezone,
-      gender: profile.gender
+      gender: profile.gender,
+      birthDataVersion: profile.birthDataVersion ?? 1,
+      trueSolarCorrection: profile.trueSolarCorrection ?? 0,
+      lateZiHourRule: profile.lateZiHourRule ?? "sameDay",
+      dstDisambiguation: readStringProperty(profile.birthInput, "dstDisambiguation") ?? "reject",
+      timePrecision: profile.birthTimePrecision ?? "exact",
+      engineVersion: BAZI_ENGINE_VERSION
     }))
     .digest("hex");
 }
@@ -116,6 +146,8 @@ function toBaziChartDto(chart: {
   pillars: unknown;
   elements: unknown;
   metadata: unknown;
+  engine?: string;
+  engineVersion?: string;
   createdAt: Date;
 }): BaziChartDto {
   const metadata = chart.metadata && typeof chart.metadata === "object" ? (chart.metadata as Record<string, unknown>) : {};
@@ -130,7 +162,11 @@ function toBaziChartDto(chart: {
     usefulGods: Array.isArray(metadata.usefulGods) ? (metadata.usefulGods as FiveElement[]) : undefined,
     unfavorableGods: Array.isArray(metadata.unfavorableGods) ? (metadata.unfavorableGods as FiveElement[]) : undefined,
     analysis: readMetadataObject<BaziChartDto["analysis"]>(metadata, "analysis"),
-    metadata,
+    metadata: {
+      ...metadata,
+      engine: chart.engine ?? metadata.engine,
+      engineVersion: chart.engineVersion ?? metadata.engineVersion
+    },
     createdAt: chart.createdAt.toISOString()
   };
   const enriched = enrichProfessionalBaziChart(dto);
@@ -155,4 +191,10 @@ function readMetadataObject<T>(metadata: Record<string, unknown>, key: string): 
 
 function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+function readStringProperty(value: unknown, key: string): string | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const property = (value as Record<string, unknown>)[key];
+  return typeof property === "string" ? property : undefined;
 }

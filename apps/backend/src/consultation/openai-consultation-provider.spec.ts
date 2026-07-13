@@ -25,6 +25,7 @@ describe("OpenAiConsultationProvider", () => {
       expect.objectContaining({
         model: "gpt-4.1-mini",
         stream: true,
+        max_tokens: 1200,
         messages: expect.arrayContaining([
           expect.objectContaining({ role: "system" }),
           expect.objectContaining({ role: "user" })
@@ -37,8 +38,12 @@ describe("OpenAiConsultationProvider", () => {
         section: "factors",
         content: expect.stringContaining("日主 乙 / weak")
       }),
-      { section: "citation", content: "[K1] pattern-shayin" }
+      expect.objectContaining({
+        section: "citation",
+        content: expect.stringContaining("\u77e5\u8bc6\u4f9d\u636e\u4e0d\u8db3")
+      })
     ]);
+    expect(chunks.find((chunk) => chunk.section === "citation")?.content).not.toContain("[K1]");
   });
 });
 

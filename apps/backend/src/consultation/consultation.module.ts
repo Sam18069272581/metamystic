@@ -7,12 +7,14 @@ import { ConsultationController } from "./consultation.controller";
 import { ConsultationService } from "./consultation.service";
 import { ConfigService } from "@nestjs/config";
 import { createAiProvider } from "./ai-provider";
+import { AiAccessPolicyService } from "./ai-access-policy.service";
 
 @Module({
   imports: [BaziModule, SafetyModule, KnowledgeModule, ProfileModule],
   controllers: [ConsultationController],
   providers: [
     ConsultationService,
+    AiAccessPolicyService,
     {
       provide: "AI_PROVIDER",
       inject: [ConfigService],

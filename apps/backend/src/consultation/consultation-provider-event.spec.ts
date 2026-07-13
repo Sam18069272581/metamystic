@@ -1,6 +1,7 @@
 import type { MessageEvent } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { ConsultationService } from "./consultation.service";
+import { createAiAccessPolicyStub } from "./ai-access-policy.stub";
 
 describe("ConsultationService provider stream events", () => {
   it("emits provider status events before content chunks", async () => {
@@ -34,6 +35,7 @@ describe("ConsultationService provider stream events", () => {
     const prisma = {
       consultation: {
         findFirst: vi.fn().mockResolvedValue(consultation),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         update: vi.fn().mockResolvedValue({})
       },
       consultationMessage: {
@@ -45,7 +47,16 @@ describe("ConsultationService provider stream events", () => {
       evaluateQuestion: vi.fn().mockReturnValue({ allowed: true, disclaimer: "\u7406\u6027\u53c2\u8003" })
     };
     const knowledge = {
-      search: vi.fn().mockResolvedValue({ chunks: [] })
+      search: vi.fn().mockResolvedValue({
+        chunks: [],
+        retrievalVersion: "hybrid-rrf-v2",
+        trace: {
+          retrievalVersion: "hybrid-rrf-v2",
+          corpusVersion: "knowledge-v2",
+          candidates: [],
+          citations: []
+        }
+      })
     };
     const aiProvider = {
       async *streamConsultation() {
@@ -67,7 +78,8 @@ describe("ConsultationService provider stream events", () => {
       safety as never,
       knowledge as never,
       aiProvider as never,
-      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never
+      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never,
+      createAiAccessPolicyStub() as never
     );
     const events: MessageEvent[] = [];
 
@@ -99,5 +111,14 @@ describe("ConsultationService provider stream events", () => {
       },
       { type: "done", consultationId: "consult-1" }
     ]);
+    expect(prisma.consultation.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "consult-1" },
+      data: expect.objectContaining({
+        retrievalVersion: "hybrid-rrf-v2",
+        metadata: expect.objectContaining({
+          retrieval: expect.objectContaining({ corpusVersion: "knowledge-v2" })
+        })
+      })
+    }));
   });
 });

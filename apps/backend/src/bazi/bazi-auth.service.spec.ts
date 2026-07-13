@@ -102,8 +102,11 @@ describe("BaziService chart fingerprinting", () => {
     const createInput = prisma.baziChart.create.mock.calls[0]?.[0];
     expect(createInput.data.fingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(createInput.data.fingerprint).toBe(
-      "9089e31ef50ed682be6ef8bcdf90155ae55a16bf95901842938271a3857353da"
+      "9afabbb070687dcaaedbc9fdaa00524bfea0b7611c6c28c21d3c39b8bcd2dac4"
     );
+    expect(createInput.data.engineVersion).toBe("3.0.0");
+    expect(createInput.data.engine).toBe("tyme4ts+bazi-rules");
+    expect(createInput.data.inputSnapshot).toEqual(expect.objectContaining({ birthDataVersion: 1 }));
   });
 });
 

@@ -4,12 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogIn, Mail, Sparkles } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { buildGoogleAuthUrl, getApiBaseUrl } from "@/lib/public-url";
+import { buildGoogleAuthUrl, getClientApiBaseUrl } from "@/lib/public-url";
 import { getAuthSuccessRedirect } from "./auth-success-redirect";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
-  const googleAuthUrl = buildGoogleAuthUrl(getApiBaseUrl(process.env));
+  const googleAuthUrl = buildGoogleAuthUrl(getClientApiBaseUrl());
   const [email, setEmail] = useState("user@example.com");
   const [password, setPassword] = useState("Correct Horse Battery Staple 42!");
   const [displayName, setDisplayName] = useState("\u5c0f\u7384\u540c\u5b66");

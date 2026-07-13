@@ -1,50 +1,30 @@
 import { Injectable } from "@nestjs/common";
 import type { KnowledgeSearchResponse } from "@metamystic/shared";
-import { PrismaService } from "../prisma/prisma.service";
 import { KnowledgeEmbeddingService } from "./knowledge-embedding.service";
-
-interface KnowledgeChunkWithSource {
-  id: string;
-  anchorId: string;
-  content: string;
-  metadata: unknown;
-  source: {
-    title: string;
-  };
-}
+import { mergeKnowledgeRankings } from "./knowledge-hybrid-ranker";
+import { KnowledgeVectorRepository } from "./knowledge-vector.repository";
 
 @Injectable()
 export class KnowledgeService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly embeddings: KnowledgeEmbeddingService
+    private readonly embeddings: KnowledgeEmbeddingService,
+    private readonly repository: KnowledgeVectorRepository
   ) {}
 
   async search(query: string, limit = 4): Promise<KnowledgeSearchResponse> {
-    const chunks = await this.prisma.knowledgeChunk.findMany({
-      include: { source: true },
-      orderBy: { createdAt: "asc" },
-      take: 80
-    });
+    const candidateLimit = Math.max(limit * 3, limit);
+    const [tagged, lexical, vector] = await Promise.all([
+      this.repository.findTagged(query, candidateLimit),
+      this.repository.findLexical(query, candidateLimit),
+      this.embeddings.searchVector(query, candidateLimit)
+    ]);
+    const result = mergeKnowledgeRankings({ tagged, lexical, vector }, limit);
 
-    const ranked = await this.embeddings.rank(
+    return {
       query,
-      chunks.map((chunk: KnowledgeChunkWithSource) => ({
-        id: chunk.id,
-        sourceTitle: chunk.source.title,
-        anchorId: chunk.anchorId,
-        content: chunk.content,
-        metadata: this.asMetadata(chunk.metadata)
-      })),
-      limit
-    );
-
-    return { query, chunks: ranked };
-  }
-
-  private asMetadata(value: unknown): Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
+      chunks: result.chunks,
+      retrievalVersion: "hybrid-rrf-v2",
+      trace: result.trace
+    };
   }
 }

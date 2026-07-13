@@ -5,17 +5,20 @@ import { Send } from "lucide-react";
 import type { ConsultationStreamEvent, ConsultationTone, Gender } from "@metamystic/shared";
 import { getOrCreateAnonymousUserId } from "@/lib/anonymous-user";
 import { apiClient } from "@/lib/api-client";
+import { buildBirthInputV2 } from "@/lib/birth-input";
 import { useAppStore } from "@/store/app-store";
-import { buildConsultationFormView } from "./consultation-form-view";
+import { buildConsultationFormView, formatAiAccessHint } from "./consultation-form-view";
+import type { Locale } from "@/lib/i18n";
 import { getConsultationHistoryScope } from "./consultation-history-scope";
 import { questionTemplateCategories } from "./question-templates";
 
 interface ConsultationFormProps {
   initialChartId?: string | undefined;
   initialProfileId?: string | undefined;
+  locale?: Locale | undefined;
 }
 
-export function ConsultationForm({ initialChartId, initialProfileId }: ConsultationFormProps) {
+export function ConsultationForm({ initialChartId, initialProfileId, locale = "zh" }: ConsultationFormProps) {
   const [displayName, setDisplayName] = useState("\u5c0f\u7384\u540c\u5b66");
   const [birthTime, setBirthTime] = useState("1995-05-20T10:30");
   const [gender, setGender] = useState<Gender>("female");
@@ -83,7 +86,10 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
         profileId: resolvedProfileId,
         chartId: chart.id,
         question,
-        tone
+        tone,
+        locale,
+        idempotencyKey: crypto.randomUUID(),
+        anonymousUserId
       };
       const consultation = user || usingSavedChart
         ? await apiClient.createMyConsultation(consultationInput)
@@ -171,10 +177,11 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
   }
 
   function buildProfileInput() {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return {
       displayName,
-      birthTime: new Date(birthTime).toISOString(),
-      birthTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      birthTimezone: timezone,
+      birthInput: buildBirthInputV2(birthTime, { timezone, lateZiHourRule: "nextDay" }),
       gender,
       birthPlace: "\u5317\u4eac",
       latitude: 39.9042,
@@ -185,8 +192,18 @@ export function ConsultationForm({ initialChartId, initialProfileId }: Consultat
   return (
     <section className="mystic-card rounded-3xl p-4">
       <div>
-        <p className="gold-text text-lg font-semibold">{formView.title}</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="gold-text text-lg font-semibold">{formView.title}</p>
+          <span className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-medium text-emerald-100">
+            {formView.accessBadge}
+          </span>
+        </div>
         <p className="mt-2 text-xs leading-5 text-white/48">{formView.description}</p>
+        <p className="mt-1 text-[11px] leading-5 text-emerald-100/65">
+          {store.consultation?.access
+            ? formatAiAccessHint(store.consultation.access)
+            : formView.accessHint}
+        </p>
       </div>
       {formView.showBirthFields ? (
         <>

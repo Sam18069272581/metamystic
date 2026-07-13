@@ -6,7 +6,21 @@ export function formatConsultationCitationLine(citation: KnowledgeChunkDto, inde
 }
 
 export function getCitationSource(citation: KnowledgeChunkDto): string {
-  return stringMetadata(citation, "classicalSource") ?? citation.sourceTitle;
+  if (citation.sourceType === "platform_explanation") {
+    return "\u5e73\u53f0\u89e3\u91ca";
+  }
+  if (citation.sourceType === "classical_original") {
+    return citation.chapter ? `${citation.sourceTitle}\u00b7${citation.chapter}` : citation.sourceTitle;
+  }
+  const sourceKind = stringMetadata(citation, "sourceKind");
+  const referenceWork = stringMetadata(citation, "referenceWork");
+  if (sourceKind === "curatedCommentary") {
+    return referenceWork ? `\u5e73\u53f0\u6574\u7406\uff08\u53c2\u8003${referenceWork}\uff09` : "\u5e73\u53f0\u6574\u7406";
+  }
+  if (sourceKind === "primaryText") {
+    return referenceWork ?? citation.sourceTitle;
+  }
+  return citation.sourceTitle;
 }
 
 export function getCitationTitle(citation: KnowledgeChunkDto): string {

@@ -1,7 +1,40 @@
-export const knowledgeSeed = [
+interface KnowledgeSeedChunk {
+  anchorId: string;
+  content: string;
+  chapter?: string;
+  pageReference?: string;
+  domain: string;
+  topic: string;
+  tags: string[];
+  decisionScenarios: string[];
+  language: string;
+  qualityScore: number;
+  sourceKind: "platformExplanation" | "classicalOriginal";
+  searchText: string;
+  metadata: Record<string, unknown>;
+}
+
+interface KnowledgeSeedSource {
+  title: string;
+  sourceType: "platform_explanation" | "classical_original";
+  author?: string;
+  edition?: string;
+  license?: string;
+  sourceUrl?: string;
+  language: string;
+  reviewStatus: "published";
+  contentVersion: string;
+  chunks: KnowledgeSeedChunk[];
+}
+
+export const knowledgeSeed: KnowledgeSeedSource[] = [
   {
     title: "MetaMystic 命理知识库 MVP",
-    sourceType: "curated_mvp",
+    sourceType: "platform_explanation",
+    license: "MetaMystic internal content",
+    language: "zh",
+    reviewStatus: "published",
+    contentVersion: "platform-v2",
     chunks: [
       chunk("ten-god-zhengguan", "career", ["十神", "正官", "事业", "规则"], ["career_path"], "正官代表秩序、规则、责任感与社会评价。正官旺或成用时，更适合稳定路径、资格认证、制度型组织与长期信誉建设。"),
       chunk("ten-god-qisha", "career", ["十神", "七杀", "压力", "竞争"], ["career_path", "risk"], "七杀代表压力、竞争、边界与行动风险。七杀不宜直接解读为坏事，关键在于是否有印星化杀、食神制杀或现实训练来承接。"),
@@ -28,6 +61,59 @@ export const knowledgeSeed = [
       chunk("career-decision", "career", ["事业", "职业", "选择", "路径"], ["career_path"], "职业决策应区分短期机会和长期结构。命理建议更适合帮助识别优势、压力来源和节奏，不应替代真实行业调研。"),
       chunk("decision-guardrail", "decision_safety", ["风控", "免责声明", "决策", "安全"], ["risk"], "命理分析适合作为自我观察和决策辅助，不应输出绝对化断语。涉及医疗、法律、财务和人身安全时，应引导用户寻求专业帮助。")
     ]
+  },
+  {
+    title: "《滴天髓》",
+    sourceType: "classical_original",
+    author: "刘基（题署）",
+    edition: "维基文库《滴天髓辑要》页面",
+    license: "Public-domain original; transcription source: Chinese Wikisource",
+    sourceUrl: "https://zh.wikisource.org/zh/%E6%BB%B4%E5%A4%A9%E9%AB%93",
+    language: "zh",
+    reviewStatus: "published",
+    contentVersion: "wikisource-2026-07-13",
+    chunks: [
+      classicalChunk(
+        "ditiansui-tongtian-season",
+        "通天论",
+        "欲识三元万物宗，先观帝载与神功。天有阴阳，故春木、夏火、秋金、冬水、季土，得时而显其神功。",
+        ["月令", "得令", "旺衰", "四时"],
+        ["bazi_analysis"]
+      ),
+      classicalChunk(
+        "ditiansui-pattern-month-command",
+        "格局论",
+        "财官印绶分偏正，兼论食伤格局定。格之真者，月支之神，透于天干也。",
+        ["格局", "月令", "透干", "十神"],
+        ["bazi_analysis"]
+      )
+    ]
+  },
+  {
+    title: "《穷通宝鉴》",
+    sourceType: "classical_original",
+    edition: "维基文库《穷通宝鉴》页面",
+    license: "Public-domain original; transcription source: Chinese Wikisource",
+    sourceUrl: "https://zh.wikisource.org/wiki/%E7%A9%B7%E9%80%9A%E5%AE%9D%E9%89%B4",
+    language: "zh",
+    reviewStatus: "published",
+    contentVersion: "wikisource-2026-07-13",
+    chunks: [
+      classicalChunk(
+        "qiongtong-wuxing-balance",
+        "五行总论",
+        "过与不及，皆为乖道。故高者抑之使平，下者举之使崇，或益其不及，或损其太过。",
+        ["五行", "中和", "扶抑", "喜用"],
+        ["bazi_analysis"]
+      ),
+      classicalChunk(
+        "qiongtong-spring-wood",
+        "论木",
+        "木生于春，余寒犹存。喜火温暖，藉水资扶，水火二物既济方佳。",
+        ["调候", "春木", "水火", "用神"],
+        ["bazi_analysis"]
+      )
+    ]
   }
 ];
 
@@ -41,10 +127,19 @@ function chunk(
   return {
     anchorId,
     content,
+    domain: "bazi",
+    topic,
+    tags,
+    decisionScenarios,
+    language: "zh",
+    qualityScore: 0.75,
+    sourceKind: "platformExplanation" as const,
+    searchText: [anchorId, topic, ...tags, ...decisionScenarios, content].join(" ").toLowerCase(),
     metadata: {
       domain: "bazi",
       topic,
-      classicalSource: classicalSourceFor(anchorId),
+      sourceKind: "platformExplanation",
+      inspiredBy: referenceWorkFor(anchorId),
       displayTitle: displayTitleFor(anchorId, tags),
       tags,
       decisionScenarios
@@ -52,17 +147,43 @@ function chunk(
   };
 }
 
-function classicalSourceFor(anchorId: string): string {
+function classicalChunk(
+  anchorId: string,
+  chapter: string,
+  content: string,
+  tags: string[],
+  decisionScenarios: string[]
+): KnowledgeSeedChunk {
+  return {
+    anchorId,
+    chapter,
+    content,
+    domain: "bazi",
+    topic: "classical_rules",
+    tags,
+    decisionScenarios,
+    language: "zh",
+    qualityScore: 0.95,
+    sourceKind: "classicalOriginal",
+    searchText: [anchorId, chapter, ...tags, ...decisionScenarios, content].join(" ").toLowerCase(),
+    metadata: {
+      sourceKind: "classicalOriginal",
+      displayTitle: chapter
+    }
+  };
+}
+
+function referenceWorkFor(anchorId: string): string {
   if (anchorId.startsWith("ten-god") || anchorId.startsWith("pattern")) {
-    return "\u300a\u5b50\u5e73\u771f\u8be0\u300b\u4e49\u7406\u6574\u7406";
+    return "\u300a\u5b50\u5e73\u771f\u8be0\u300b";
   }
   if (anchorId.startsWith("element") || anchorId.startsWith("day-master")) {
-    return "\u300a\u6ef4\u5929\u9ad3\u300b\u4e49\u7406\u6574\u7406";
+    return "\u300a\u6ef4\u5929\u9ad3\u300b";
   }
   if (anchorId.includes("study-abroad") || anchorId.includes("career") || anchorId.includes("relationship")) {
-    return "\u300a\u7a77\u901a\u5b9d\u9274\u300b\u4e49\u7406\u6574\u7406";
+    return "\u300a\u7a77\u901a\u5b9d\u9274\u300b";
   }
-  return "\u300a\u6ef4\u5929\u9ad3\u300b\u4e49\u7406\u6574\u7406";
+  return "\u300a\u6ef4\u5929\u9ad3\u300b";
 }
 
 function displayTitleFor(anchorId: string, tags: string[]): string {

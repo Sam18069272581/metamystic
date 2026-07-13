@@ -1,4 +1,4 @@
-import type { BaziChartDto, ConsultationTone, KnowledgeChunkDto } from "@metamystic/shared";
+import type { BaziChartDto, ConsultationTone, FiveElement, KnowledgeChunkDto } from "@metamystic/shared";
 import { getCitationSource, getCitationTitle } from "./consultation-citation";
 import { formatPromptShenshaInsights } from "./shensha-prompt-insights";
 
@@ -25,6 +25,8 @@ export function buildConsultationPrompt(input: ConsultationPromptInput): Consult
     system: [
       "\u4f60\u662f MetaMystic \u7684 AI \u547d\u7406\u51b3\u7b56\u987e\u95ee\uff0c\u804c\u8d23\u662f\u63d0\u4f9b\u7384\u5b66\u89c6\u89d2\u4e0b\u7684\u4eba\u751f\u51b3\u7b56\u8f85\u52a9\u3002",
       "\u5fc5\u987b\u4f18\u5148\u4f7f\u7528\u3010RAG \u77e5\u8bc6\u4f9d\u636e\u3011\u4e0e\u3010\u516b\u5b57\u6392\u76d8\u6458\u8981\u3011\u8fdb\u884c\u5206\u6790\uff1b\u6ca1\u6709\u4f9d\u636e\u65f6\u8981\u660e\u786e\u8bf4\u662f\u63a8\u65ad\u3002",
+      "\u3010\u516b\u5b57\u6392\u76d8\u6458\u8981\u3011\u662f\u89c4\u5219\u5f15\u64ce\u7684\u786e\u5b9a\u6027\u7ed3\u679c\uff1bAI \u53ea\u80fd\u89e3\u91ca\uff0c\u4e0d\u5f97\u4fee\u6539\u56db\u67f1\u3001\u65e5\u4e3b\u5f3a\u5f31\u3001\u683c\u5c40\u6216\u559c\u7528\u795e\u65b9\u6cd5\u3002",
+      "\u53ea\u80fd\u5f15\u7528\u672c\u6b21 RAG \u4e0a\u4e0b\u6587\u4e2d\u5217\u51fa\u7684 [K1]...[Kn] \u7f16\u53f7\uff1b\u6ca1\u6709\u53ef\u9760\u7247\u6bb5\u65f6\u5fc5\u987b\u5199\u201c\u77e5\u8bc6\u4f9d\u636e\u4e0d\u8db3\u201d\u3002",
       "\u7981\u6b62\u7edd\u5bf9\u5316\u65ad\u8bed\uff0c\u7981\u6b62\u627f\u8bfa\u7ed3\u679c\uff0c\u7981\u6b62\u66ff\u4ee3\u533b\u7597\u3001\u6cd5\u5f8b\u3001\u8d22\u52a1\u7b49\u4e13\u4e1a\u5efa\u8bae\u3002",
       "\u8f93\u51fa\u5fc5\u987b\u5206\u4e3a\uff1a\u7ed3\u8bba\u3001\u547d\u7406\u903b\u8f91\u3001\u547d\u76d8\u89e6\u53d1\u70b9\u3001\u73b0\u5b9e\u5efa\u8bae\u3001\u53c2\u8003\u4f9d\u636e\u3001\u514d\u8d23\u58f0\u660e\u3002",
       "\u3010\u547d\u76d8\u89e6\u53d1\u70b9\u3011\u4e2d\u6bcf\u4e2a\u89e6\u53d1\u70b9\u5fc5\u987b\u8bf4\u660e\u201c\u547d\u76d8\u56e0\u7d20 \u2192 \u5bf9\u95ee\u9898\u7684\u542b\u4e49\u201d\uff0c\u4f18\u5148\u8986\u76d6\u65e5\u4e3b\u5f3a\u5f31\u3001\u5341\u795e\u3001\u4e94\u884c\u559c\u5fcc\u3001\u795e\u715e\u4e0e RAG \u4f9d\u636e\u3002",
@@ -40,6 +42,7 @@ export function buildConsultationPrompt(input: ConsultationPromptInput): Consult
       `\u4e3b\u683c\u5c40\uff1a${input.chart.mainPattern}`,
       `\u56db\u67f1\uff1a${formatPillars(input.chart.pillars)}`,
       `\u4e94\u884c\u5206\u5e03\uff1a${formatElements(input.chart.elements)}`,
+      formatRuleAnalysis(input.chart),
       "",
       "\u3010\u795e\u715e\u8f85\u52a9\u89e3\u8bfb\u3011",
       formatPromptShenshaInsights(input.chart.pillars),
@@ -53,6 +56,36 @@ export function buildConsultationPrompt(input: ConsultationPromptInput): Consult
   };
 }
 
+function formatRuleAnalysis(chart: BaziChartDto): string {
+  const analysis = chart.analysis;
+  if (!analysis?.ruleVersion) return "\u89c4\u5219\u7248\u672c\uff1alegacy";
+  const evidence = (analysis.strengthEvidence ?? [])
+    .map((item) => `${strengthDimensionLabel(item.dimension)} ${item.score}/${item.maxScore}\uff1a${item.evidence.join("\uff1b")}`)
+    .join("\n");
+  const methods = (analysis.usefulGodMethods ?? [])
+    .map((method) => {
+      const favorable = method.favorable.map((element) => elementLabel(element)).join("\u3001") || "\u672a\u5b9a";
+      const unfavorable = method.unfavorable.map((element) => elementLabel(element)).join("\u3001") || "\u65e0";
+      return `${method.method}\uff1a\u559c ${favorable}\uff1b\u5fcc ${unfavorable}\uff1b\u7f6e\u4fe1 ${Math.round(method.confidence * 100)}%`;
+    })
+    .join("\n");
+  return [
+    `\u89c4\u5219\u7248\u672c\uff1a${analysis.ruleVersion}`,
+    `\u65fa\u8870\u7f6e\u4fe1\u5ea6\uff1a${Math.round((analysis.confidence ?? 0) * 100)}%`,
+    evidence,
+    methods,
+    analysis.controversy ? `\u4e89\u8bae\u8bf4\u660e\uff1a${analysis.controversy}` : ""
+  ].filter(Boolean).join("\n");
+}
+
+function strengthDimensionLabel(dimension: "season" | "roots" | "momentum" | "relations"): string {
+  return { season: "\u5f97\u4ee4", roots: "\u5f97\u5730", momentum: "\u5f97\u52bf", relations: "\u5408\u51b2\u5211\u5bb3" }[dimension];
+}
+
+function elementLabel(element: FiveElement): string {
+  return { wood: "\u6728", fire: "\u706b", earth: "\u571f", metal: "\u91d1", water: "\u6c34" }[element];
+}
+
 function formatCitations(citations: KnowledgeChunkDto[]): string {
   if (citations.length === 0) {
     return "\u672a\u68c0\u7d22\u5230\u9ad8\u76f8\u5173\u77e5\u8bc6\u7247\u6bb5\u3002\u56de\u7b54\u65f6\u53ea\u80fd\u57fa\u4e8e\u547d\u76d8\u6458\u8981\u505a\u4fdd\u5b88\u63a8\u65ad\uff0c\u5e76\u8bf4\u660e\u4f9d\u636e\u4e0d\u8db3\u3002";
@@ -60,10 +93,10 @@ function formatCitations(citations: KnowledgeChunkDto[]): string {
 
   return citations
     .map((citation, index) => {
-      const tags = Array.isArray(citation.metadata.tags) ? citation.metadata.tags.join("\u3001") : "";
+      const tags = (citation.tags ?? (Array.isArray(citation.metadata.tags) ? citation.metadata.tags.map(String) : [])).join("\u3001");
       return [
         `[K${index + 1}] ${getCitationSource(citation)}\uff5c${getCitationTitle(citation)}`,
-        `\u4e3b\u9898\uff1a${String(citation.metadata.topic ?? "unknown")}`,
+        `\u4e3b\u9898\uff1a${citation.topic ?? String(citation.metadata.topic ?? "unknown")}`,
         tags ? `\u6807\u7b7e\uff1a${tags}` : undefined,
         `\u5185\u5bb9\uff1a${citation.content}`
       ]

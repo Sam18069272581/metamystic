@@ -139,6 +139,88 @@ describe("ProfileService authenticated profile", () => {
     );
   });
 
+  it("persists BirthInputV2 using the declared timezone", async () => {
+    const prisma = {
+      profile: {
+        count: vi.fn().mockResolvedValue(0),
+        create: vi.fn().mockImplementation(({ data }) => Promise.resolve({
+          id: "profile-v2", ...data,
+          createdAt: new Date("2026-06-22T00:00:00.000Z"),
+          updatedAt: new Date("2026-06-22T00:00:00.000Z")
+        }))
+      }
+    };
+    const service = new ProfileService(prisma as never);
+
+    await service.createUserProfile("user-1", {
+      label: "self",
+      birthTimezone: "Europe/Berlin",
+      gender: "female",
+      birthInput: {
+        calendarType: "solar",
+        localDate: "1995-05-20",
+        localTime: "10:30",
+        timezone: "Europe/Berlin",
+        timePrecision: "exact",
+        trueSolarTime: false,
+        lateZiHourRule: "sameDay"
+      }
+    } as never);
+
+    expect(prisma.profile.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        birthTime: new Date("1995-05-20T08:30:00.000Z"),
+        birthCalendarType: "solar",
+        birthLocalDate: "1995-05-20",
+        birthLocalTime: "10:30",
+        birthDataVersion: 2
+      })
+    });
+  });
+
+  it("creates a replacement default profile in one transaction", async () => {
+    const created = {
+      id: "profile-2",
+      userId: "user-1",
+      label: "partner",
+      isDefault: true,
+      displayName: "Partner",
+      birthTime: new Date("1992-08-01T02:00:00.000Z"),
+      birthTimezone: "Asia/Shanghai",
+      gender: "male",
+      birthPlace: null,
+      latitude: null,
+      longitude: null,
+      createdAt: new Date("2026-05-31T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-31T00:00:00.000Z")
+    };
+    const tx = {
+      profile: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        create: vi.fn().mockResolvedValue(created)
+      }
+    };
+    const prisma = {
+      profile: { count: vi.fn().mockResolvedValue(1) },
+      $transaction: vi.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx))
+    };
+    const service = new ProfileService(prisma as never);
+
+    const result = await service.createUserProfile("user-1", {
+      label: "partner",
+      displayName: "Partner",
+      birthTime: "1992-08-01T02:00:00.000Z",
+      birthTimezone: "Asia/Shanghai",
+      gender: "male",
+      isDefault: true
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+    expect(tx.profile.updateMany).toHaveBeenCalledWith({ where: { userId: "user-1" }, data: { isDefault: false } });
+    expect(tx.profile.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ isDefault: true }) }));
+    expect(result.id).toBe("profile-2");
+  });
+
   it("sets only one profile as default for the current user", async () => {
     const prisma = {
       profile: {

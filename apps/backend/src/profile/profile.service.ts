@@ -8,9 +8,10 @@ import type {
   UpsertUserProfileRequest,
   UserProfileListResponse
 } from "@metamystic/shared";
-import type { PrismaJsonObject } from "../prisma/prisma-json";
+import { asPrismaJson, type PrismaJsonObject } from "../prisma/prisma-json";
 import { PrismaService } from "../prisma/prisma.service";
 import { extractProfileMemorySignals, mergeProfileMemorySignals, type ProfileMemorySignals } from "./profile-memory";
+import { resolveBirthInput } from "./birth-input";
 
 export interface RememberCompletedConsultationInput {
   profileId: string;
@@ -89,10 +90,21 @@ export class ProfileService {
     const profileCount = await this.prisma.profile.count({ where: { userId } });
     const isDefault = profileCount === 0 ? true : input.isDefault ?? false;
     if (isDefault && profileCount > 0) {
-      await this.prisma.profile.updateMany({
-        where: { userId },
-        data: { isDefault: false }
+      const profile = await this.prisma.$transaction(async (transaction) => {
+        await transaction.profile.updateMany({
+          where: { userId },
+          data: { isDefault: false }
+        });
+        return transaction.profile.create({
+          data: {
+            userId,
+            label: input.label ?? input.displayName ?? "self",
+            isDefault: true,
+            ...toProfileWrite(input)
+          }
+        });
       });
+      return toProfileDto(profile, "");
     }
 
     const profile = await this.prisma.profile.create({
@@ -157,36 +169,79 @@ export class ProfileService {
   }
 
   async rememberCompletedConsultation(input: RememberCompletedConsultationInput): Promise<ProfileMemorySignalsDto> {
-    const profile = await this.prisma.profile.findUnique({
-      where: { id: input.profileId },
-      select: { memorySignals: true }
-    });
     const incoming = extractProfileMemorySignals({
       consultationId: input.consultationId,
       question: input.question,
       answer: input.answer,
       tone: input.tone
     });
-    const merged = mergeProfileMemorySignals(normalizeMemorySignals(profile?.memorySignals), incoming);
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT "id" FROM "Profile" WHERE "id" = ${input.profileId} FOR UPDATE`;
+      const profile = await transaction.profile.findUnique({
+        where: { id: input.profileId },
+        select: { id: true }
+      });
+      if (!profile) {
+        throw new NotFoundException("Profile not found");
+      }
 
-    await this.prisma.profile.update({
-      where: { id: input.profileId },
-      data: { memorySignals: toJsonObject(merged) }
+      const existing = await transaction.profileMemoryEvent.findUnique({
+        where: { consultationId: input.consultationId },
+        select: { id: true }
+      });
+      if (!existing) {
+        await transaction.profileMemoryEvent.create({
+          data: {
+            profileId: input.profileId,
+            consultationId: input.consultationId,
+            payload: toJsonObject(incoming)
+          }
+        });
+      }
+
+      const events = await transaction.profileMemoryEvent.findMany({
+        where: { profileId: input.profileId },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { payload: true }
+      });
+      const merged = events.reduce(
+        (snapshot, event) => mergeProfileMemorySignals(snapshot, normalizeMemorySignals(event.payload)),
+        emptyMemorySignals()
+      );
+      await transaction.profile.update({
+        where: { id: input.profileId },
+        data: { memorySignals: toJsonObject(merged) }
+      });
+      return merged;
     });
-
-    return merged;
   }
 }
 
 function toProfileWrite(input: UpsertUserProfileRequest) {
+  const resolved = input.birthInput ? resolveBirthInput(input.birthInput) : undefined;
+  const legacyBirthTime = input.birthTime ? new Date(input.birthTime) : undefined;
+  const birthTime = resolved?.birthTime ?? legacyBirthTime;
+  const birthTimezone = input.birthInput?.timezone ?? input.birthTimezone;
+  if (!birthTime || Number.isNaN(birthTime.getTime()) || !birthTimezone) {
+    throw new RangeError("A valid birthInput or legacy birthTime and birthTimezone is required");
+  }
   return {
     displayName: input.displayName ?? null,
-    birthTime: new Date(input.birthTime),
-    birthTimezone: input.birthTimezone,
+    birthTime,
+    birthTimezone,
     gender: input.gender,
-    birthPlace: input.birthPlace ?? null,
-    latitude: input.latitude ?? null,
-    longitude: input.longitude ?? null
+    birthPlace: input.birthInput?.location?.name ?? input.birthPlace ?? null,
+    latitude: input.birthInput?.location?.latitude ?? input.latitude ?? null,
+    longitude: input.birthInput?.location?.longitude ?? input.longitude ?? null,
+    birthCalendarType: input.birthInput?.calendarType ?? "solar",
+    birthLocalDate: resolved?.localDate ?? null,
+    birthLocalTime: resolved?.localTime ?? null,
+    birthTimePrecision: input.birthInput?.timePrecision ?? "exact",
+    trueSolarTime: input.birthInput?.trueSolarTime ?? false,
+    trueSolarCorrection: resolved?.trueSolarCorrectionMinutes ?? 0,
+    lateZiHourRule: input.birthInput?.lateZiHourRule ?? "sameDay",
+    birthDataVersion: input.birthInput ? 2 : 1,
+    birthInput: asPrismaJson(input.birthInput ?? {})
   };
 }
 
@@ -202,6 +257,8 @@ function toProfileDto(
     birthPlace: string | null;
     latitude: number | null;
     longitude: number | null;
+    birthInput?: unknown;
+    birthDataVersion?: number;
     createdAt: Date;
     updatedAt: Date;
   },
@@ -219,6 +276,8 @@ function toProfileDto(
     birthPlace: profile.birthPlace ?? undefined,
     latitude: profile.latitude ?? undefined,
     longitude: profile.longitude ?? undefined,
+    birthInput: profile.birthInput && typeof profile.birthInput === "object" ? profile.birthInput as ProfileDto["birthInput"] : undefined,
+    needsBirthReview: (profile.birthDataVersion ?? 1) < 2,
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString()
   };

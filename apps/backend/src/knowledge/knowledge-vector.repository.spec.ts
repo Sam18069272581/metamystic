@@ -10,6 +10,14 @@ describe("KnowledgeVectorRepository", () => {
           sourceTitle: "MVP",
           anchorId: "pattern-shayin",
           content: "杀印相生适合专业路线。",
+          sourceType: "classical_original",
+          reviewStatus: "published",
+          domain: "bazi",
+          topic: "patterns",
+          tags: ["杀印相生"],
+          decisionScenarios: ["career_path"],
+          language: "zh",
+          qualityScore: 0.95,
           metadata: { tags: ["杀印相生"] },
           score: 0.91
         }
@@ -20,14 +28,14 @@ describe("KnowledgeVectorRepository", () => {
     const chunks = await repository.findSimilar([1, 0, 0], 4);
 
     expect(chunks).toEqual([
-      {
+      expect.objectContaining({
         id: "chunk-1",
         sourceTitle: "MVP",
+        sourceType: "classical_original",
         anchorId: "pattern-shayin",
         content: "杀印相生适合专业路线。",
-        metadata: { tags: ["杀印相生"] },
         score: 0.91
-      }
+      })
     ]);
     expect(prisma.$queryRaw).toHaveBeenCalledOnce();
   });
@@ -96,6 +104,21 @@ describe("KnowledgeVectorRepository", () => {
         metadata: { tags: ["杀印相生"] }
       }
     ]);
+    expect(prisma.$queryRaw).toHaveBeenCalledOnce();
+  });
+
+  it("runs lexical ranking inside PostgreSQL", async () => {
+    const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([{
+        id: "chunk-1", sourceTitle: "平台整理", anchorId: "career", content: "事业决策需要验证",
+        metadata: { sourceKind: "curatedCommentary" }, score: 0.72
+      }])
+    };
+    const repository = new KnowledgeVectorRepository(prisma as never);
+
+    const chunks = await repository.findLexical("事业 决策", 6);
+
+    expect(chunks[0]).toEqual(expect.objectContaining({ id: "chunk-1", score: 0.72 }));
     expect(prisma.$queryRaw).toHaveBeenCalledOnce();
   });
 });
