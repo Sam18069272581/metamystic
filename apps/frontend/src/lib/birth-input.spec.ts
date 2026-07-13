@@ -6,7 +6,8 @@ describe("buildBirthInputV2", () => {
     expect(buildBirthInputV2("1995-05-20T10:30", {
       timezone: "Asia/Shanghai",
       trueSolarTime: true,
-      lateZiHourRule: "nextDay"
+      lateZiHourRule: "nextDay",
+      dstDisambiguation: "reject"
     })).toEqual(expect.objectContaining({
       localDate: "1995-05-20",
       localTime: "10:30",

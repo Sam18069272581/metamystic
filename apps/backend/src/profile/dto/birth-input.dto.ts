@@ -42,6 +42,10 @@ export class BirthInputDto implements BirthInputV2 {
   lateZiHourRule!: BirthInputV2["lateZiHourRule"];
 
   @IsOptional()
+  @IsIn(["reject", "earlier", "later"])
+  dstDisambiguation?: BirthInputV2["dstDisambiguation"];
+
+  @IsOptional()
   @IsBoolean()
   lunarLeapMonth?: boolean;
 }

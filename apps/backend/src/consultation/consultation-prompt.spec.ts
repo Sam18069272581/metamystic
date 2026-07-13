@@ -19,6 +19,33 @@ describe("buildConsultationPrompt", () => {
           hour: { stem: "\u8f9b", branch: "\u5df3", tenGod: "\u4e03\u6740", hiddenStems: ["\u4e19"], shensha: ["\u9a7f\u9a6c"] }
         },
         elements: { wood: 0.32, fire: 0.22, earth: 0.15, metal: 0.2, water: 0.11 },
+        analysis: {
+          ruleVersion: "bazi-rules-3.0.0",
+          confidence: 0.86,
+          strengthLevel: "weak",
+          strengthEvidence: [{
+            dimension: "season",
+            score: 8,
+            maxScore: 40,
+            evidence: ["\u6708\u4ee4\u4e3b\u6c14\u4e0d\u52a9\u65e5\u4e3b"]
+          }],
+          usefulGodMethods: [{
+            method: "\u6276\u6291",
+            favorable: ["water", "wood"],
+            unfavorable: ["metal"],
+            confidence: 0.82,
+            evidence: ["\u4f9d\u636e\u5f97\u4ee4\u3001\u5f97\u5730\u3001\u5f97\u52bf\u7efc\u5408\u5224\u5b9a"]
+          }],
+          strengthScore: 36,
+          strengthLabel: "\u8eab\u5f31",
+          strengthReasons: ["\u6708\u4ee4\u4e3b\u6c14\u4e0d\u52a9\u65e5\u4e3b"],
+          favorableStrategy: "\u5148\u8865\u8d44\u6e90",
+          personality: "\u8c28\u614e",
+          career: "\u7a33\u6b65\u53d1\u5c55",
+          wealth: "\u63a7\u5236\u98ce\u9669",
+          relationship: "\u91cd\u89c6\u6c9f\u901a",
+          health: "\u4fdd\u6301\u89c4\u5f8b"
+        },
         createdAt: "2026-05-29T00:00:00.000Z"
       },
       citations: [
@@ -41,11 +68,14 @@ describe("buildConsultationPrompt", () => {
     });
 
     expect(prompt.system).toContain("\u5fc5\u987b\u4f18\u5148\u4f7f\u7528\u3010RAG \u77e5\u8bc6\u4f9d\u636e\u3011");
+    expect(prompt.system).toContain("AI \u53ea\u80fd\u89e3\u91ca\uff0c\u4e0d\u5f97\u4fee\u6539");
     expect(prompt.system).toContain("\u547d\u76d8\u89e6\u53d1\u70b9");
     expect(prompt.system).toContain("\u6bcf\u4e2a\u89e6\u53d1\u70b9\u5fc5\u987b\u8bf4\u660e\u201c\u547d\u76d8\u56e0\u7d20 \u2192 \u5bf9\u95ee\u9898\u7684\u542b\u4e49\u201d");
     expect(prompt.user).toContain("[K1] \u5e73\u53f0\u6574\u7406\uff08\u53c2\u8003\u300a\u5b50\u5e73\u771f\u8be0\u300b\uff09\uff5c\u6740\u5370\u76f8\u751f");
     expect(prompt.user).not.toContain("#pattern-shayin");
     expect(prompt.user).toContain("\u3010\u795e\u715e\u8f85\u52a9\u89e3\u8bfb\u3011");
+    expect(prompt.user).toContain("\u89c4\u5219\u7248\u672c\uff1abazi-rules-3.0.0");
+    expect(prompt.user).toContain("\u6276\u6291\uff1a\u559c \u6c34\u3001\u6728\uff1b\u5fcc \u91d1");
     expect(prompt.user).toContain("\u6708\u67f1\uff1a\u5929\u4e59\u8d35\u4eba\uff5c\u8d35\u4eba\uff5c\u9047\u4e8b\u8f83\u6613\u5f97\u5173\u952e\u52a9\u529b");
     expect(prompt.user).toContain("\u65e5\u67f1\uff1a\u7a7a\u4ea1\uff5c\u98ce\u9669\uff5c\u4e8b\u60c5\u5bb9\u6613\u865a\u3001\u7a7a\u3001\u843d\u7a7a");
     expect(prompt.user).toContain("\u6211\u9002\u5408\u53bb\u5fb7\u56fd\u53d1\u5c55\u5417\uff1f");

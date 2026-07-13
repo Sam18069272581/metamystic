@@ -55,6 +55,8 @@ describe("TymeBaziEngine timezone handling", () => {
     });
 
     expect(nextDay.pillars.day).not.toEqual(sameDay.pillars.day);
+    expect(`${sameDay.pillars.day.stem}${sameDay.pillars.day.branch}`).toBe("辛亥");
+    expect(`${nextDay.pillars.day.stem}${nextDay.pillars.day.branch}`).toBe("壬子");
     expect(nextDay.metadata.lateZiHourApplied).toBe(true);
   });
 
@@ -77,5 +79,28 @@ describe("TymeBaziEngine timezone handling", () => {
 
     expect(morning.elements).toEqual(evening.elements);
     expect(morning.metadata.hourPillarReliable).toBe(false);
+  });
+
+  it("builds a traceable decade and annual fortune timeline for binary gender inputs", () => {
+    const chart = new TymeBaziEngine().calculate({
+      profileId: "timeline",
+      birthTime: new Date("1995-05-20T02:30:00.000Z"),
+      birthTimezone: "Asia/Shanghai",
+      gender: "female"
+    });
+    const fortunes = chart.metadata.decadeFortunes as Array<{
+      name: string;
+      startAge: number;
+      annualFortunes: unknown[];
+    }>;
+
+    expect(fortunes).toHaveLength(8);
+    expect(fortunes[0]).toEqual(expect.objectContaining({
+      name: expect.stringMatching(/^[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]$/),
+      startAge: expect.any(Number),
+      annualFortunes: expect.any(Array)
+    }));
+    expect(fortunes[0]?.annualFortunes).toHaveLength(10);
+    expect(chart.metadata.fortuneProvider).toBe("tyme4ts/ChildLimit");
   });
 });

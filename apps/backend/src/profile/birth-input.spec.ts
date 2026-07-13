@@ -42,6 +42,24 @@ describe("resolveBirthInput", () => {
     })).toThrow("does not exist");
   });
 
+  it("rejects an ambiguous DST clock by default and supports explicit earlier or later selection", () => {
+    const input = {
+      calendarType: "solar" as const,
+      localDate: "2026-10-25",
+      localTime: "02:30",
+      timezone: "Europe/Berlin",
+      timePrecision: "exact" as const,
+      trueSolarTime: false,
+      lateZiHourRule: "sameDay" as const
+    };
+
+    expect(() => resolveBirthInput(input)).toThrow("ambiguous");
+    expect(resolveBirthInput({ ...input, dstDisambiguation: "earlier" }).birthTime.toISOString())
+      .toBe("2026-10-25T00:30:00.000Z");
+    expect(resolveBirthInput({ ...input, dstDisambiguation: "later" }).birthTime.toISOString())
+      .toBe("2026-10-25T01:30:00.000Z");
+  });
+
   it("records a true-solar correction when location is available", () => {
     const result = resolveBirthInput({
       calendarType: "solar",

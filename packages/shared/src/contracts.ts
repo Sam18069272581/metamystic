@@ -1,6 +1,7 @@
 export type Gender = "female" | "male" | "non_binary" | "unknown";
 
 export type FiveElement = "wood" | "fire" | "earth" | "metal" | "water";
+export type BaziStrengthLevel = "veryWeak" | "weak" | "balanced" | "strong" | "veryStrong";
 
 export type AiSectionType = "verdict" | "logic" | "factors" | "advice" | "citation" | "disclaimer";
 
@@ -28,6 +29,7 @@ export interface BirthInputV2 {
   timePrecision: "exact" | "hour" | "unknown";
   trueSolarTime: boolean;
   lateZiHourRule: "nextDay" | "sameDay";
+  dstDisambiguation?: "reject" | "earlier" | "later" | undefined;
   lunarLeapMonth?: boolean | undefined;
 }
 
@@ -148,6 +150,39 @@ export interface BaziChartDto {
   usefulGods?: FiveElement[] | undefined;
   unfavorableGods?: FiveElement[] | undefined;
   analysis?: {
+    ruleVersion?: string | undefined;
+    confidence?: number | undefined;
+    controversy?: string | undefined;
+    strengthLevel?: BaziStrengthLevel | undefined;
+    strengthEvidence?: Array<{
+      dimension: "season" | "roots" | "momentum" | "relations";
+      score: number;
+      maxScore: number;
+      evidence: string[];
+    }> | undefined;
+    usefulGodMethods?: Array<{
+      method: "扶抑" | "调候" | "格局" | "通关";
+      favorable: FiveElement[];
+      unfavorable: FiveElement[];
+      confidence: number;
+      evidence: string[];
+      conflictNote?: string | undefined;
+    }> | undefined;
+    relations?: Array<{
+      pillars: [string, string];
+      branches: [string, string];
+      type: "combine" | "clash" | "punishment" | "harm";
+      adjustment: number;
+      evidence: string;
+    }> | undefined;
+    decadeFortunes?: Array<{
+      name: string;
+      startAge: number;
+      endAge: number;
+      startYear: number;
+      endYear: number;
+      annualFortunes: Array<{ age: number; year: number; name: string }>;
+    }> | undefined;
     strengthScore: number;
     strengthLabel: string;
     strengthReasons: string[];

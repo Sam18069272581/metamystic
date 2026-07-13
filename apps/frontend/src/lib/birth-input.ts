@@ -6,6 +6,7 @@ interface BirthInputOptions {
   timePrecision?: BirthInputV2["timePrecision"];
   trueSolarTime?: boolean;
   lateZiHourRule?: BirthInputV2["lateZiHourRule"];
+  dstDisambiguation?: BirthInputV2["dstDisambiguation"];
   location?: BirthInputV2["location"];
   lunarLeapMonth?: boolean;
 }
@@ -24,6 +25,7 @@ export function buildBirthInputV2(localDateTime: string, options: BirthInputOpti
     timePrecision: options.timePrecision ?? "exact",
     trueSolarTime: options.trueSolarTime ?? false,
     lateZiHourRule: options.lateZiHourRule ?? "sameDay",
+    dstDisambiguation: options.dstDisambiguation ?? "reject",
     ...(options.lunarLeapMonth !== undefined ? { lunarLeapMonth: options.lunarLeapMonth } : {})
   };
 }

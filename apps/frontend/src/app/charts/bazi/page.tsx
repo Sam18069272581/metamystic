@@ -25,6 +25,7 @@ export default function BaziChartPage() {
   const [lateZiHourRule, setLateZiHourRule] = useState<"nextDay" | "sameDay">("nextDay");
   const [calendarType, setCalendarType] = useState<BirthInputV2["calendarType"]>("solar");
   const [timePrecision, setTimePrecision] = useState<BirthInputV2["timePrecision"]>("exact");
+  const [dstDisambiguation, setDstDisambiguation] = useState<NonNullable<BirthInputV2["dstDisambiguation"]>>("reject");
   const [lunarLeapMonth, setLunarLeapMonth] = useState(false);
   const [birthPlace, setBirthPlace] = useState("北京");
   const [latitude, setLatitude] = useState("39.9042");
@@ -46,6 +47,7 @@ export default function BaziChartPage() {
           timePrecision,
           trueSolarTime,
           lateZiHourRule,
+          dstDisambiguation,
           lunarLeapMonth,
           location: { name: birthPlace, latitude: Number(latitude), longitude: Number(longitude) }
         }),
@@ -148,6 +150,18 @@ export default function BaziChartPage() {
               </select>
             </label>
           </div>
+          <label className="mt-3 block text-xs text-white/55">
+            {"夏令时重复时刻"}
+            <select
+              value={dstDisambiguation}
+              onChange={(event) => setDstDisambiguation(event.target.value as NonNullable<BirthInputV2["dstDisambiguation"]>)}
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white"
+            >
+              <option value="reject">{"遇到歧义时停止并提示"}</option>
+              <option value="earlier">{"采用较早时刻"}</option>
+              <option value="later">{"采用较晚时刻"}</option>
+            </select>
+          </label>
           {calendarType === "lunar" ? (
             <label className="mt-3 flex items-center gap-2 text-xs text-white/65">
               <input type="checkbox" checked={lunarLeapMonth} onChange={(event) => setLunarLeapMonth(event.target.checked)} />

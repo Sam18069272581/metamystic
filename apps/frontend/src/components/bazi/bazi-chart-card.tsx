@@ -29,7 +29,7 @@ const pillarLabels: Record<keyof BaziChartDto["pillars"], string> = {
 };
 
 export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
-  const [mode, setMode] = useState<"overview" | "professional">("professional");
+  const [mode, setMode] = useState<"overview" | "professional">("overview");
   const pillars = getOrderedBaziPillars(chart);
 
   return (
@@ -47,7 +47,7 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
               onClick={() => setMode(item)}
               className={`rounded-full px-3 py-1 ${mode === item ? "bg-[#d8a850]/25 text-[#f2cf8d]" : "text-white/45"}`}
             >
-              {item === "overview" ? "\u6982\u89c8" : "\u4e13\u4e1a"}
+              {item === "overview" ? "\u5c0f\u767d" : "\u4e13\u4e1a"}
             </button>
           ))}
         </div>
@@ -157,6 +157,12 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
           <GodPanel label={"\u559c\u7528\u795e"} elements={chart.usefulGods ?? []} tone="good" />
           <GodPanel label={"\u5fcc\u795e"} elements={chart.unfavorableGods ?? []} tone="bad" />
         </div>
+        {mode === "professional" && chart.analysis ? (
+          <ProfessionalRuleDetails analysis={chart.analysis} />
+        ) : null}
+        {mode === "professional" && chart.analysis?.decadeFortunes?.length ? (
+          <FortuneTimeline fortunes={chart.analysis.decadeFortunes} />
+        ) : null}
         {chart.analysis ? (
           <div className="grid grid-cols-1 gap-2">
             <AnalysisRow label={"\u6027\u683c\u5e95\u8272"} content={chart.analysis.personality} />
@@ -169,6 +175,97 @@ export function BaziChartCard({ chart }: { chart: BaziChartDto }) {
       </div>
     </section>
   );
+}
+
+function ProfessionalRuleDetails({ analysis }: { analysis: NonNullable<BaziChartDto["analysis"]> }) {
+  return (
+    <div className="border-t border-white/10 pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="gold-text text-sm font-semibold">{"规则证据"}</p>
+          <p className="mt-1 text-[11px] text-white/38">
+            {analysis.ruleVersion ?? "legacy"} · {"置信度 "}{Math.round((analysis.confidence ?? 0) * 100)}%
+          </p>
+        </div>
+        <span className="text-xs text-white/48">{analysis.pattern?.name}</span>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {(analysis.strengthEvidence ?? []).map((item) => (
+          <div key={item.dimension} className="grid grid-cols-[56px_1fr_42px] items-center gap-2 text-xs">
+            <span className="text-white/48">{strengthDimensionLabel(item.dimension)}</span>
+            <div className="h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={item.score < 0 ? "h-full bg-rose-300/70" : "h-full bg-amber-200/70"}
+                style={{ width: `${Math.min(100, Math.abs(item.score) / item.maxScore * 100)}%` }}
+              />
+            </div>
+            <span className="text-right text-white/55">{item.score}/{item.maxScore}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {(analysis.usefulGodMethods ?? []).map((method) => (
+          <div key={method.method} className="border-l-2 border-amber-200/25 pl-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-amber-100/85">{method.method}</p>
+              <span className="text-[11px] text-white/35">{Math.round(method.confidence * 100)}%</span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-white/55">
+              {"喜 "}{method.favorable.map((element) => elementLabels[element]).join("、") || "未定"}
+              {method.unfavorable.length ? ` · 忌 ${method.unfavorable.map((element) => elementLabels[element]).join("、")}` : ""}
+            </p>
+            <p className="mt-1 text-[11px] leading-5 text-white/40">{method.evidence.join(" ")}</p>
+            {method.conflictNote ? <p className="mt-1 text-[11px] leading-5 text-amber-100/55">{method.conflictNote}</p> : null}
+          </div>
+        ))}
+      </div>
+      {(analysis.relations ?? []).length > 0 ? (
+        <div className="mt-4 border-t border-white/8 pt-3">
+          <p className="text-xs text-white/45">{"合冲刑害"}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {analysis.relations?.map((relation, index) => (
+              <span key={`${relation.pillars.join("-")}-${relation.type}-${index}`} className="rounded-full border border-white/10 px-2 py-1 text-[11px] text-white/58" title={relation.evidence}>
+                {relation.branches.join("")} · {relationTypeLabel(relation.type)} {relation.adjustment > 0 ? "+" : ""}{relation.adjustment}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {analysis.controversy ? <p className="mt-4 text-[11px] leading-5 text-white/35">{analysis.controversy}</p> : null}
+    </div>
+  );
+}
+
+function FortuneTimeline({ fortunes }: { fortunes: NonNullable<NonNullable<BaziChartDto["analysis"]>["decadeFortunes"]> }) {
+  return (
+    <div className="border-t border-white/10 pt-4">
+      <p className="gold-text text-sm font-semibold">{"大运与流年"}</p>
+      <div className="mt-3 flex snap-x gap-3 overflow-x-auto pb-2">
+        {fortunes.map((fortune) => (
+          <div key={`${fortune.name}-${fortune.startYear}`} className="min-w-36 snap-start border-l-2 border-[#6d4bd0]/45 pl-3">
+            <p className="text-lg font-semibold text-white/85">{fortune.name}</p>
+            <p className="mt-1 text-xs text-white/42">{fortune.startAge}-{fortune.endAge}{" 岁"}</p>
+            <p className="text-xs text-white/42">{fortune.startYear}-{fortune.endYear}</p>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {fortune.annualFortunes.slice(0, 10).map((annual) => (
+                <span key={`${fortune.name}-${annual.year}`} className="text-[10px] text-amber-100/55" title={`${annual.age}岁`}>
+                  {annual.year}{annual.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function strengthDimensionLabel(dimension: NonNullable<NonNullable<BaziChartDto["analysis"]>["strengthEvidence"]>[number]["dimension"]): string {
+  return { season: "得令", roots: "得地", momentum: "得势", relations: "合冲" }[dimension];
+}
+
+function relationTypeLabel(type: NonNullable<NonNullable<BaziChartDto["analysis"]>["relations"]>[number]["type"]): string {
+  return { combine: "合", clash: "冲", punishment: "刑", harm: "害" }[type];
 }
 
 function ShenshaChip({ insight }: { insight: ShenshaInsight }) {

@@ -26,11 +26,11 @@ describe("enrichProfessionalBaziChart", () => {
     expect(chart.usefulGods).toEqual(["water", "wood"]);
     expect(chart.unfavorableGods).toContain("metal");
     expect(chart.analysis?.strengthLabel).toBe("\u8eab\u5f31");
-    expect(chart.analysis?.strengthReasons).toContain("\u6708\u4ee4\u5bf9\u65e5\u4e3b\u4e3a\u6cc4\u8017\u6216\u514b\u5236\uff0c\u65e5\u4e3b\u9700\u8981\u5370\u6bd4\u627f\u6258\u3002");
+    expect(chart.analysis?.strengthReasons.join(" ")).toContain("\u6708\u4ee4\u4e3b\u6c14");
     expect(chart.analysis?.career).toContain("\u5148\u5efa\u7acb\u4e13\u4e1a\u4fe1\u4efb");
     expect(chart.analysis?.strength).toEqual(
       expect.objectContaining({
-        level: "\u504f\u5f31",
+        level: "\u8eab\u5f31",
         seasonalSupport: "draining",
         supportScore: expect.any(Number),
         pressureScore: expect.any(Number)
@@ -52,10 +52,12 @@ describe("enrichProfessionalBaziChart", () => {
     );
     expect(chart.analysis?.pattern).toEqual(
       expect.objectContaining({
-        name: "\u6740\u5370\u76f8\u751f",
+        name: "\u683c\u5c40\u672a\u5b9a",
         confidence: expect.any(Number)
       })
     );
+    expect(chart.analysis?.ruleVersion).toBe("bazi-rules-3.0.0");
+    expect(chart.analysis?.usefulGodMethods).toHaveLength(4);
     expect(chart.analysis?.riskFlags).toContain("\u5b98\u6740\u538b\u529b\u504f\u91cd");
     expect(chart.pillars.month.shensha).toEqual(expect.arrayContaining(["\u9a7f\u9a6c", "\u5929\u5fb7\u8d35\u4eba"]));
     expect(chart.pillars.day.shensha).toContain("\u5c06\u661f");

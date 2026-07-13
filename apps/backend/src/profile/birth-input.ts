@@ -12,7 +12,7 @@ export function resolveBirthInput(input: BirthInputV2): ResolvedBirthInput {
   const localTime = input.localTime ?? "12:00";
   const parsed = parseLocalDateTime(input.localDate, localTime);
   const solar = input.calendarType === "lunar" ? lunarToSolar(parsed, input.lunarLeapMonth === true) : parsed;
-  const birthTime = zonedLocalToInstant(solar, input.timezone);
+  const birthTime = zonedLocalToInstant(solar, input.timezone, input.dstDisambiguation ?? "reject");
   const trueSolarCorrectionMinutes = input.trueSolarTime && input.location
     ? calculateTrueSolarCorrection(birthTime, input.timezone, input.location.longitude)
     : 0;
@@ -53,22 +53,33 @@ function lunarToSolar(parts: DateParts, leapMonth: boolean): DateParts {
   };
 }
 
-function zonedLocalToInstant(parts: DateParts, timeZone: string): Date {
+function zonedLocalToInstant(
+  parts: DateParts,
+  timeZone: string,
+  disambiguation: "reject" | "earlier" | "later"
+): Date {
   const desired = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
-  let candidate = desired;
-  for (let iteration = 0; iteration < 4; iteration += 1) {
-    const displayed = getZonedParts(new Date(candidate), timeZone);
-    const rendered = Date.UTC(displayed.year, displayed.month - 1, displayed.day, displayed.hour, displayed.minute, displayed.second);
-    const delta = desired - rendered;
-    candidate += delta;
-    if (delta === 0) break;
+  const offsets = new Set<number>();
+  for (let hours = -18; hours <= 18; hours += 1) {
+    offsets.add(offsetMinutes(new Date(desired + hours * 3_600_000), timeZone));
   }
-  const result = new Date(candidate);
-  const verified = getZonedParts(result, timeZone);
-  if (Object.keys(parts).some((key) => parts[key as keyof DateParts] !== verified[key as keyof DateParts])) {
+  const candidates = [...offsets]
+    .map((offset) => new Date(desired - offset * 60_000))
+    .filter((candidate) => sameDateParts(parts, getZonedParts(candidate, timeZone)))
+    .filter((candidate, index, all) => all.findIndex((item) => item.getTime() === candidate.getTime()) === index)
+    .sort((left, right) => left.getTime() - right.getTime());
+
+  if (candidates.length === 0) {
     throw new RangeError(`Local birth time does not exist in timezone ${timeZone}`);
   }
-  return result;
+  if (candidates.length > 1 && disambiguation === "reject") {
+    throw new RangeError(`Local birth time is ambiguous in timezone ${timeZone}`);
+  }
+  return disambiguation === "later" ? candidates.at(-1)! : candidates[0]!;
+}
+
+function sameDateParts(left: DateParts, right: DateParts): boolean {
+  return (Object.keys(left) as Array<keyof DateParts>).every((key) => left[key] === right[key]);
 }
 
 export function getZonedParts(date: Date, timeZone: string): DateParts {
