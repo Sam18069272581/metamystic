@@ -51,6 +51,7 @@ export interface OpenAiConsultationProviderOptions {
   baseURL?: string;
   model: string;
   providerName?: string;
+  maxOutputTokens?: number;
   client?: OpenAiClientLike;
 }
 
@@ -67,6 +68,7 @@ export function createAiProvider(config: ConfigService): AiProvider {
       apiKey: providerConfig.apiKey,
       model: providerConfig.model,
       providerName: providerConfig.providerName,
+      maxOutputTokens: readMaxOutputTokens(config),
       ...(providerConfig.baseURL ? { baseURL: providerConfig.baseURL } : {})
     }),
     new MockAiProvider()
@@ -184,6 +186,7 @@ export class OpenAiConsultationProvider implements AiProvider {
       model: this.options.model,
       stream: true,
       temperature: 0.4,
+      max_tokens: Math.min(this.options.maxOutputTokens ?? 1200, 1200),
       messages: [
         { role: "system", content: prompt.system },
         { role: "user", content: prompt.user }
@@ -199,6 +202,12 @@ export class OpenAiConsultationProvider implements AiProvider {
       yield chunk;
     }
   }
+}
+
+function readMaxOutputTokens(config: ConfigService): number {
+  const configured = Number(config.get<string>("AI_MAX_OUTPUT_TOKENS") ?? 1200);
+  if (!Number.isFinite(configured) || configured < 1) return 1200;
+  return Math.min(Math.floor(configured), 1200);
 }
 
 export class MockAiProvider implements AiProvider {

@@ -14,6 +14,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ProfileService } from "../profile/profile.service";
 import { SafetyService } from "../safety/safety.service";
 import type { AiProvider, AiProviderStatusEvent } from "./ai-provider";
+import { AiAccessPolicyError, AiAccessPolicyService } from "./ai-access-policy.service";
 import type { CreateConsultationDto } from "./dto/create-consultation.dto";
 
 interface ConsultationMessageRecord {
@@ -34,6 +35,11 @@ interface ConsultationRecord {
   status: "pending" | "streaming" | "completed" | "failed";
   summary: string | null;
   createdAt: Date;
+  locale?: string;
+  accessMode?: string;
+  charged?: boolean;
+  accessRemaining?: number | null;
+  accessResetsAt?: Date | null;
 }
 
 interface ConsultationStreamRecord extends ConsultationRecord {
@@ -64,7 +70,8 @@ export class ConsultationService {
     private readonly safety: SafetyService,
     private readonly knowledgeService: KnowledgeService,
     @Inject("AI_PROVIDER") private readonly aiProvider: AiProvider,
-    private readonly profileService: ProfileService
+    private readonly profileService: ProfileService,
+    private readonly aiAccessPolicy: AiAccessPolicyService
   ) {}
 
   async createConsultation(input: CreateConsultationDto): Promise<ConsultationDto> {
@@ -109,6 +116,9 @@ export class ConsultationService {
       }
     }
 
+    const ownerType = profile.user.email === null ? "anonymous" : "user";
+    const access = await this.aiAccessPolicy.assertAvailable({ userId: profile.userId, ownerType });
+
     try {
       const consultation = await this.prisma.consultation.create({
         data: {
@@ -120,6 +130,11 @@ export class ConsultationService {
           idempotencyKey: input.idempotencyKey ?? null,
           promptVersion: "consultation-v2",
           retrievalVersion: "hybrid-v1",
+          locale: input.locale ?? "zh",
+          accessMode: access.mode,
+          charged: access.charged,
+          accessRemaining: access.remaining,
+          accessResetsAt: new Date(access.resetsAt),
           metadata: { disclaimer: safety.disclaimer },
           messages: {
             create: {
@@ -228,7 +243,7 @@ export class ConsultationService {
           id,
           user: { anonymousUserId, email: null }
         },
-        include: { chart: true }
+        include: { chart: true, user: { select: { anonymousUserId: true, email: true } } }
       });
       if (!consultation) {
         throw new NotFoundException("Consultation not found");
@@ -241,7 +256,7 @@ export class ConsultationService {
     return this.streamConsultationRecord(`user:${userId}:${id}`, id, async () => {
       const consultation = await this.prisma.consultation.findFirst({
         where: { id, userId },
-        include: { chart: true }
+        include: { chart: true, user: { select: { anonymousUserId: true, email: true } } }
       });
       if (!consultation) {
         throw new NotFoundException("Consultation not found");
@@ -301,15 +316,28 @@ export class ConsultationService {
       return;
     }
 
-    const chart = this.toBaziChartDto(consultation.chart);
-    const safety = this.safety.evaluateQuestion(consultation.question);
-    const knowledge = await this.knowledgeService.search(
-      `${consultation.question} ${chart.mainPattern} ${chart.dayMasterStatus}`,
-      3
-    );
     const answer: string[] = [];
 
     try {
+      const access = await this.aiAccessPolicy.consume({
+        userId: consultation.userId ?? "",
+        ownerType: consultation.user?.email === null ? "anonymous" : "user"
+      });
+      await this.prisma.consultation.update({
+        where: { id },
+        data: {
+          accessMode: access.mode,
+          charged: access.charged,
+          accessRemaining: access.remaining,
+          accessResetsAt: new Date(access.resetsAt)
+        }
+      });
+      const chart = this.toBaziChartDto(consultation.chart);
+      const safety = this.safety.evaluateQuestion(consultation.question);
+      const knowledge = await this.knowledgeService.search(
+        `${consultation.question} ${chart.mainPattern} ${chart.dayMasterStatus}`,
+        3
+      );
       for await (const chunk of this.aiProvider.streamConsultation({
         question: consultation.question,
         tone: consultation.tone,
@@ -382,7 +410,12 @@ export class ConsultationService {
         data: {
           status: "failed",
           finishedAt: new Date(),
-          errorCode: error instanceof Error ? error.name : "AI_STREAM_FAILED"
+          errorCode:
+            error instanceof AiAccessPolicyError
+              ? error.code
+              : error instanceof Error
+                ? error.name
+                : "AI_STREAM_FAILED"
         }
       });
       throw error;
@@ -417,6 +450,11 @@ export class ConsultationService {
     status: "pending" | "streaming" | "completed" | "failed";
     summary: string | null;
     createdAt: Date;
+    locale?: string;
+    accessMode?: string;
+    charged?: boolean;
+    accessRemaining?: number | null;
+    accessResetsAt?: Date | null;
   }): ConsultationDto {
     return {
       id: consultation.id,
@@ -426,7 +464,13 @@ export class ConsultationService {
       tone: consultation.tone,
       status: consultation.status,
       summary: consultation.summary ?? undefined,
-      createdAt: consultation.createdAt.toISOString()
+      createdAt: consultation.createdAt.toISOString(),
+      access: {
+        mode: normalizeAccessMode(consultation.accessMode),
+        charged: consultation.charged ?? false,
+        remaining: consultation.accessRemaining ?? 0,
+        resetsAt: consultation.accessResetsAt?.toISOString() ?? new Date(0).toISOString()
+      }
     };
   }
 
@@ -467,4 +511,8 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function normalizeAccessMode(value: string | undefined): "public_beta" | "metered" | "subscription" {
+  return value === "metered" || value === "subscription" ? value : "public_beta";
 }

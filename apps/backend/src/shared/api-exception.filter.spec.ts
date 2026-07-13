@@ -59,4 +59,32 @@ describe("ApiExceptionFilter", () => {
       })
     );
   });
+
+  it("preserves a stable public error code and merges the request id", () => {
+    const { host, response } = createHost();
+
+    new ApiExceptionFilter().catch(
+      new HttpException(
+        {
+          code: "AI_RATE_LIMITED",
+          message: "公测额度已用完，请稍后再试。",
+          details: { resetsAt: "2026-07-14T00:00:00.000Z" }
+        },
+        HttpStatus.TOO_MANY_REQUESTS
+      ),
+      host as never
+    );
+
+    expect(response.json).toHaveBeenCalledWith({
+      status: "error",
+      error: {
+        code: "AI_RATE_LIMITED",
+        message: "公测额度已用完，请稍后再试。",
+        details: {
+          resetsAt: "2026-07-14T00:00:00.000Z",
+          requestId: "req-123"
+        }
+      }
+    });
+  });
 });

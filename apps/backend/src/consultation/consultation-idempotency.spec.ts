@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ConsultationService } from "./consultation.service";
+import { createAiAccessPolicyStub } from "./ai-access-policy.stub";
 
 describe("ConsultationService idempotency", () => {
   it("returns an existing consultation for the same owner and idempotency key", async () => {
@@ -18,7 +19,7 @@ describe("ConsultationService idempotency", () => {
     const service = new ConsultationService(
       prisma as never,
       { evaluateQuestion: vi.fn().mockReturnValue({ allowed: true, disclaimer: "仅供参考" }) } as never,
-      {} as never, {} as never, {} as never
+      {} as never, {} as never, {} as never, createAiAccessPolicyStub() as never
     );
 
     const result = await service.createUserConsultation("user-1", {

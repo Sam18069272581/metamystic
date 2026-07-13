@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ConsultationService } from "./consultation.service";
+import { createAiAccessPolicyStub } from "./ai-access-policy.stub";
 
 describe("ConsultationService stream execution", () => {
   it("shares one model execution across concurrent subscribers", async () => {
@@ -33,12 +34,14 @@ describe("ConsultationService stream execution", () => {
       consultationMessage: { create: vi.fn().mockResolvedValue({}) },
       $transaction: vi.fn(async (operations: unknown[]) => operations)
     };
+    const accessPolicy = createAiAccessPolicyStub();
     const service = new ConsultationService(
       prisma as never,
       { evaluateQuestion: vi.fn().mockReturnValue({ allowed: true, disclaimer: "仅供参考" }) } as never,
       { search: vi.fn().mockResolvedValue({ chunks: [] }) } as never,
       provider as never,
-      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never
+      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never,
+      accessPolicy as never
     );
     const collect = () => new Promise<void>((resolve, reject) => {
       service.streamUserConsultation("user-1", "consult-1").subscribe({ complete: resolve, error: reject });
@@ -47,6 +50,7 @@ describe("ConsultationService stream execution", () => {
     await Promise.all([collect(), collect()]);
 
     expect(provider.streamConsultation).toHaveBeenCalledOnce();
+    expect(accessPolicy.consume).toHaveBeenCalledOnce();
   });
 
   it("allows only one application instance to claim a pending consultation", async () => {
@@ -94,7 +98,8 @@ describe("ConsultationService stream execution", () => {
       { evaluateQuestion: vi.fn().mockReturnValue({ allowed: true, disclaimer: "Reference only" }) } as never,
       { search: vi.fn().mockResolvedValue({ chunks: [] }) } as never,
       provider as never,
-      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never
+      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never,
+      createAiAccessPolicyStub() as never
     ] as const;
     const first = new ConsultationService(...dependencies);
     const second = new ConsultationService(...dependencies);

@@ -57,6 +57,7 @@ model User {
   refreshTokens         RefreshToken[]
   consultations         Consultation[]
   compatibilityReadings CompatibilityReading[]
+  aiUsageBuckets        AiUsageBucket[]
 }
 
 model AuthIdentity {
@@ -218,6 +219,11 @@ model Consultation {
   retrievalVersion String?
   tokenUsage       Json?
   errorCode        String?
+  locale           String                @default("zh")
+  accessMode       String                @default("public_beta")
+  charged          Boolean               @default(false)
+  accessRemaining  Int?
+  accessResetsAt   DateTime?
   startedAt        DateTime?
   finishedAt       DateTime?
   summary          String?
@@ -233,6 +239,20 @@ model Consultation {
   @@index([userId, createdAt])
   @@index([profileId, createdAt])
   @@index([profileId, userId, createdAt])
+}
+
+model AiUsageBucket {
+  id          String   @id @default(cuid())
+  userId      String
+  feature     String
+  windowType  String
+  windowStart DateTime
+  used        Int      @default(0)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, feature, windowType, windowStart])
+  @@index([windowStart])
 }
 
 model ConsultationMessage {

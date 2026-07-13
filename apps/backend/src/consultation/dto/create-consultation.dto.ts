@@ -25,4 +25,8 @@ export class CreateConsultationDto implements CreateConsultationRequest {
   @IsString()
   @Length(3, 128)
   anonymousUserId?: string;
+
+  @IsOptional()
+  @IsIn(["zh", "en"])
+  locale?: "zh" | "en";
 }

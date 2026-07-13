@@ -1,6 +1,7 @@
 import type { MessageEvent } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { ConsultationService } from "./consultation.service";
+import { createAiAccessPolicyStub } from "./ai-access-policy.stub";
 
 describe("ConsultationService provider stream events", () => {
   it("emits provider status events before content chunks", async () => {
@@ -68,7 +69,8 @@ describe("ConsultationService provider stream events", () => {
       safety as never,
       knowledge as never,
       aiProvider as never,
-      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never
+      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never,
+      createAiAccessPolicyStub() as never
     );
     const events: MessageEvent[] = [];
 

@@ -35,6 +35,7 @@ function ConsultPageContent({ locale }: { locale: Locale }) {
     <MobileShell locale={locale} title={dictionary.pages.consult}>
       <div className="space-y-4">
         <ConsultationForm
+          locale={locale}
           initialChartId={searchParams.get("chartId") ?? undefined}
           initialProfileId={searchParams.get("profileId") ?? undefined}
         />

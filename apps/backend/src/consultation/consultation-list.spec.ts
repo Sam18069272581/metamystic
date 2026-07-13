@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ConsultationService } from "./consultation.service";
+import { createAiAccessPolicyStub } from "./ai-access-policy.stub";
 
 describe("ConsultationService listRecentByProfile", () => {
   it("does not expose user-owned consultations through the public profile list", async () => {
@@ -13,7 +14,8 @@ describe("ConsultationService listRecentByProfile", () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
 
     const result = await service.listRecentByProfile("profile-1");
@@ -48,7 +50,8 @@ describe("ConsultationService listRecentByProfile", () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
 
     const result = await service.listUserRecentByProfile("user-1", "profile-1");

@@ -1,5 +1,6 @@
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
+import { createAiAccessPolicyStub } from "./ai-access-policy.stub";
 import { ConsultationService } from "./consultation.service";
 
 describe("ConsultationService authenticated creation", () => {
@@ -14,7 +15,8 @@ describe("ConsultationService authenticated creation", () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
 
     await expect(
@@ -57,7 +59,8 @@ describe("ConsultationService authenticated creation", () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
 
     const history = await service.getUserHistory("user-1", "consult-1");
@@ -80,7 +83,8 @@ describe("ConsultationService authenticated creation", () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
 
     await expect(service.getUserHistory("user-1", "other-consult")).rejects.toBeInstanceOf(NotFoundException);
@@ -96,7 +100,8 @@ describe("ConsultationService authenticated creation", () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
 
     await expect(service.getHistory("consult-1", "anon-1")).rejects.toBeInstanceOf(NotFoundException);
@@ -132,7 +137,8 @@ describe("ConsultationService authenticated creation", () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
 
     const history = await service.getHistory("consult-1", "anon-1");
@@ -158,7 +164,8 @@ describe("ConsultationService authenticated creation", () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
 
     await expect(service.getHistory("consult-1", undefined)).rejects.toBeInstanceOf(NotFoundException);
@@ -181,7 +188,8 @@ describe("ConsultationService authenticated creation", () => {
       { evaluateQuestion: vi.fn().mockReturnValue({ allowed: true, disclaimer: "\u7406\u6027\u53c2\u8003" }) } as never,
       { search: vi.fn().mockResolvedValue({ chunks: [] }) } as never,
       aiProvider as never,
-      {} as never
+      {} as never,
+      createAiAccessPolicyStub() as never
     );
     const events: unknown[] = [];
 
@@ -248,7 +256,8 @@ describe("ConsultationService authenticated creation", () => {
           yield { section: "verdict" as const, content: "\u9002\u5408\u5c0f\u6b65\u63a8\u8fdb" };
         }
       } as never,
-      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never
+      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never,
+      createAiAccessPolicyStub() as never
     );
     const events: unknown[] = [];
 
@@ -265,7 +274,7 @@ describe("ConsultationService authenticated creation", () => {
         id: "consult-1",
         user: { anonymousUserId: "anon-1", email: null }
       },
-      include: { chart: true }
+      include: { chart: true, user: { select: { anonymousUserId: true, email: true } } }
     });
     expect(events).toContainEqual({ type: "done", consultationId: "consult-1" });
   });
@@ -318,7 +327,8 @@ describe("ConsultationService authenticated creation", () => {
           yield { section: "verdict" as const, content: "\u9002\u5408\u5c0f\u6b65\u63a8\u8fdb" };
         }
       } as never,
-      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never
+      { rememberCompletedConsultation: vi.fn().mockResolvedValue({}) } as never,
+      createAiAccessPolicyStub() as never
     );
     const events: unknown[] = [];
 
@@ -332,7 +342,7 @@ describe("ConsultationService authenticated creation", () => {
 
     expect(prisma.consultation.findFirst).toHaveBeenCalledWith({
       where: { id: "consult-1", userId: "user-1" },
-      include: { chart: true }
+      include: { chart: true, user: { select: { anonymousUserId: true, email: true } } }
     });
     expect(events).toContainEqual({ type: "done", consultationId: "consult-1" });
   });

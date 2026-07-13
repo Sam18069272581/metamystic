@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ConsultationService } from "./consultation.service";
+import { createAiAccessPolicyStub } from "./ai-access-policy.stub";
 
 describe("ConsultationService memory integration", () => {
   it("updates profile memory after a stream completes", async () => {
@@ -60,7 +61,8 @@ describe("ConsultationService memory integration", () => {
       safety as never,
       knowledge as never,
       aiProvider as never,
-      profileService as never
+      profileService as never,
+      createAiAccessPolicyStub() as never
     );
 
     await new Promise<void>((resolve, reject) => {

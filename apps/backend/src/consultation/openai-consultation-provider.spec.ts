@@ -25,6 +25,7 @@ describe("OpenAiConsultationProvider", () => {
       expect.objectContaining({
         model: "gpt-4.1-mini",
         stream: true,
+        max_tokens: 1200,
         messages: expect.arrayContaining([
           expect.objectContaining({ role: "system" }),
           expect.objectContaining({ role: "user" })

@@ -6,6 +6,13 @@ export type AiSectionType = "verdict" | "logic" | "factors" | "advice" | "citati
 
 export type ConsultationTone = "strategic" | "gentle";
 
+export interface AiAccessDto {
+  mode: "public_beta" | "metered" | "subscription";
+  charged: boolean;
+  remaining: number;
+  resetsAt: string;
+}
+
 export type UserRole = "USER" | "ADMIN";
 
 export interface BirthInputV2 {
@@ -383,6 +390,7 @@ export interface CreateConsultationRequest {
   tone: ConsultationTone;
   idempotencyKey?: string | undefined;
   anonymousUserId?: string | undefined;
+  locale?: "zh" | "en" | undefined;
 }
 
 export interface ConsultationDto {
@@ -394,6 +402,7 @@ export interface ConsultationDto {
   status: "pending" | "streaming" | "completed" | "failed";
   summary?: string | undefined;
   createdAt: string;
+  access: AiAccessDto;
 }
 
 export interface ConsultationMessageDto {

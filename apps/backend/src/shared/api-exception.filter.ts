@@ -31,6 +31,18 @@ export class ApiExceptionFilter implements ExceptionFilter {
         : status >= HttpStatus.INTERNAL_SERVER_ERROR
           ? "服务暂时不可用，请稍后重试。"
           : "请求处理失败。";
+    const publicCode =
+      typeof body === "object" && body !== null && "code" in body && typeof body.code === "string"
+        ? body.code
+        : exception instanceof HttpException
+          ? exception.name
+          : "INTERNAL_SERVER_ERROR";
+    const publicDetails =
+      status < HttpStatus.INTERNAL_SERVER_ERROR &&
+      typeof body === "object" && body !== null && "details" in body &&
+      typeof body.details === "object" && body.details !== null && !Array.isArray(body.details)
+        ? (body.details as Record<string, unknown>)
+        : {};
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       const internalMessage = exception instanceof Error ? exception.stack ?? exception.message : String(exception);
@@ -40,9 +52,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const payload: ApiFailure = {
       status: "error",
       error: {
-        code: exception instanceof HttpException ? exception.name : "INTERNAL_SERVER_ERROR",
+        code: publicCode,
         message: publicMessage,
-        details: { requestId }
+        details: { ...publicDetails, requestId }
       }
     };
 
