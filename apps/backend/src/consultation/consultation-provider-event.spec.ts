@@ -47,7 +47,16 @@ describe("ConsultationService provider stream events", () => {
       evaluateQuestion: vi.fn().mockReturnValue({ allowed: true, disclaimer: "\u7406\u6027\u53c2\u8003" })
     };
     const knowledge = {
-      search: vi.fn().mockResolvedValue({ chunks: [] })
+      search: vi.fn().mockResolvedValue({
+        chunks: [],
+        retrievalVersion: "hybrid-rrf-v2",
+        trace: {
+          retrievalVersion: "hybrid-rrf-v2",
+          corpusVersion: "knowledge-v2",
+          candidates: [],
+          citations: []
+        }
+      })
     };
     const aiProvider = {
       async *streamConsultation() {
@@ -102,5 +111,14 @@ describe("ConsultationService provider stream events", () => {
       },
       { type: "done", consultationId: "consult-1" }
     ]);
+    expect(prisma.consultation.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "consult-1" },
+      data: expect.objectContaining({
+        retrievalVersion: "hybrid-rrf-v2",
+        metadata: expect.objectContaining({
+          retrieval: expect.objectContaining({ corpusVersion: "knowledge-v2" })
+        })
+      })
+    }));
   });
 });

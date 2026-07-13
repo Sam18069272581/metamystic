@@ -462,13 +462,46 @@ export interface ConsultationListResponse {
 export interface KnowledgeChunkDto {
   id: string;
   sourceTitle: string;
+  sourceType?: string | undefined;
+  sourceAuthor?: string | undefined;
+  sourceEdition?: string | undefined;
+  sourceUrl?: string | undefined;
+  license?: string | undefined;
+  contentChecksum?: string | undefined;
+  contentVersion?: string | undefined;
+  reviewStatus?: "reviewed" | "published" | undefined;
   anchorId: string;
   content: string;
+  chapter?: string | undefined;
+  pageReference?: string | undefined;
+  domain?: string | undefined;
+  topic?: string | undefined;
+  tags?: string[] | undefined;
+  decisionScenarios?: string[] | undefined;
+  language?: string | undefined;
+  qualityScore?: number | undefined;
   score: number;
   metadata: Record<string, unknown>;
+}
+
+export interface KnowledgeCandidateScoreDto {
+  id: string;
+  tagScore?: number | undefined;
+  lexicalScore?: number | undefined;
+  vectorScore?: number | undefined;
+  finalScore: number;
+}
+
+export interface KnowledgeRetrievalTraceDto {
+  retrievalVersion: "hybrid-rrf-v2";
+  corpusVersion: string;
+  candidates: KnowledgeCandidateScoreDto[];
+  citations: string[];
 }
 
 export interface KnowledgeSearchResponse {
   query: string;
   chunks: KnowledgeChunkDto[];
+  retrievalVersion: "hybrid-rrf-v2";
+  trace: KnowledgeRetrievalTraceDto;
 }

@@ -10,6 +10,14 @@ describe("KnowledgeVectorRepository", () => {
           sourceTitle: "MVP",
           anchorId: "pattern-shayin",
           content: "杀印相生适合专业路线。",
+          sourceType: "classical_original",
+          reviewStatus: "published",
+          domain: "bazi",
+          topic: "patterns",
+          tags: ["杀印相生"],
+          decisionScenarios: ["career_path"],
+          language: "zh",
+          qualityScore: 0.95,
           metadata: { tags: ["杀印相生"] },
           score: 0.91
         }
@@ -20,14 +28,14 @@ describe("KnowledgeVectorRepository", () => {
     const chunks = await repository.findSimilar([1, 0, 0], 4);
 
     expect(chunks).toEqual([
-      {
+      expect.objectContaining({
         id: "chunk-1",
         sourceTitle: "MVP",
+        sourceType: "classical_original",
         anchorId: "pattern-shayin",
         content: "杀印相生适合专业路线。",
-        metadata: { tags: ["杀印相生"] },
         score: 0.91
-      }
+      })
     ]);
     expect(prisma.$queryRaw).toHaveBeenCalledOnce();
   });

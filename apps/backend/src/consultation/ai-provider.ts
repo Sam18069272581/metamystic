@@ -198,7 +198,8 @@ export class OpenAiConsultationProvider implements AiProvider {
       content += event.choices?.[0]?.delta?.content ?? "";
     }
 
-    for (const chunk of ensureChartFactorsSection(parseConsultationResponseSections(content), input.chart)) {
+    const parsed = ensureChartFactorsSection(parseConsultationResponseSections(content), input.chart);
+    for (const chunk of enforceRetrievedCitations(parsed, input.citations, prompt.user)) {
       yield chunk;
     }
   }
@@ -305,7 +306,7 @@ function formatDeterministicChartFactors(chart: BaziChartDto): string {
 
 function formatCitationSection(citations: KnowledgeChunkDto[], promptUser: string): string {
   if (citations.length === 0) {
-    return "\u5f53\u524d\u95ee\u9898\u6ca1\u6709\u547d\u4e2d\u660e\u786e\u77e5\u8bc6\u7247\u6bb5\uff0c\u672c\u6b21\u89e3\u8bfb\u4ec5\u57fa\u4e8e\u547d\u76d8\u7ed3\u6784\u548c\u901a\u7528\u98ce\u63a7\u539f\u5219\u3002";
+    return "\u77e5\u8bc6\u4f9d\u636e\u4e0d\u8db3\uff1a\u5f53\u524d\u95ee\u9898\u6ca1\u6709\u547d\u4e2d\u660e\u786e\u77e5\u8bc6\u7247\u6bb5\uff0c\u672c\u6b21\u89e3\u8bfb\u4ec5\u57fa\u4e8e\u547d\u76d8\u7ed3\u6784\u548c\u901a\u7528\u98ce\u63a7\u539f\u5219\u3002";
   }
 
   return citations
@@ -316,4 +317,22 @@ function formatCitationSection(citations: KnowledgeChunkDto[], promptUser: strin
       }`;
     })
     .join("\n");
+}
+
+function enforceRetrievedCitations(
+  chunks: AiProviderChunk[],
+  citations: KnowledgeChunkDto[],
+  promptUser: string
+): AiProviderChunk[] {
+  const safeCitation: AiProviderChunk = {
+    section: "citation",
+    content: formatCitationSection(citations, promptUser)
+  };
+  const citationIndex = chunks.findIndex((chunk) => chunk.section === "citation");
+  if (citationIndex >= 0) {
+    return chunks.map((chunk, index) => index === citationIndex ? safeCitation : chunk);
+  }
+  const disclaimerIndex = chunks.findIndex((chunk) => chunk.section === "disclaimer");
+  if (disclaimerIndex < 0) return [...chunks, safeCitation];
+  return [...chunks.slice(0, disclaimerIndex), safeCitation, ...chunks.slice(disclaimerIndex)];
 }

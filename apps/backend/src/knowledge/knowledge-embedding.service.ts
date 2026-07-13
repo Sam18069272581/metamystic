@@ -66,6 +66,17 @@ export class KnowledgeEmbeddingService {
     }
   }
 
+  async searchVector(query: string, limit: number): Promise<KnowledgeChunkDto[]> {
+    if (!this.isVectorSearchEnabled() || !this.vectorRepository || limit <= 0) return [];
+    try {
+      const queryEmbedding = await this.provider.embed(query);
+      return await this.vectorRepository.findSimilar(queryEmbedding, limit);
+    } catch (error) {
+      this.logger.warn(`Knowledge vector search failed; continuing without vector candidates. ${String(error)}`);
+      return [];
+    }
+  }
+
   async embedKnowledgeChunk(chunk: RankableKnowledgeChunk): Promise<number[]> {
     return this.provider.embed(this.toEmbeddingInput(chunk));
   }

@@ -297,11 +297,17 @@ model KnowledgeSource {
   sourceType      String
   edition         String?
   license         String?
+  sourceUrl       String?
+  language        String           @default("zh")
+  reviewStatus    String           @default("draft")
+  reviewedAt      DateTime?
   contentChecksum String?
   contentVersion  String?
   metadata        Json             @default("{}")
   createdAt       DateTime         @default(now())
   chunks          KnowledgeChunk[]
+
+  @@index([reviewStatus])
 }
 
 model KnowledgeChunk {
@@ -312,6 +318,13 @@ model KnowledgeChunk {
   embedding           Unsupported("vector(1536)")?
   chapter             String?
   pageReference       String?
+  domain              String                       @default("bazi")
+  topic               String                       @default("general")
+  tags                String[]                     @default([])
+  decisionScenarios   String[]                     @default([])
+  language            String                       @default("zh")
+  searchText          String                       @default("") @db.Text
+  qualityScore        Float                        @default(0.5)
   embeddingModel      String?
   embeddingDimensions Int?
   metadata            Json                         @default("{}")
@@ -319,4 +332,5 @@ model KnowledgeChunk {
   source              KnowledgeSource              @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, anchorId])
+  @@index([domain, topic, language])
 }

@@ -2,6 +2,22 @@ import { describe, expect, it } from "vitest";
 import { formatConsultationCitationLine } from "./consultation-citation";
 
 describe("formatConsultationCitationLine", () => {
+  it("labels platform explanations without presenting them as classical originals", () => {
+    const line = formatConsultationCitationLine({
+      id: "platform-1",
+      sourceTitle: "MetaMystic knowledge base",
+      sourceType: "platform_explanation",
+      reviewStatus: "published",
+      anchorId: "career",
+      content: "Decision guidance",
+      score: 0.8,
+      metadata: { referenceWork: "《滴天髓》" }
+    }, 0);
+
+    expect(line).toContain("[K1] \u5e73\u53f0\u89e3\u91ca");
+    expect(line).not.toContain("\u300a\u6ef4\u5929\u9ad3\u300b");
+  });
+
   it("formats a citation with a readable classical source instead of an internal anchor", () => {
     const line = formatConsultationCitationLine(
       {

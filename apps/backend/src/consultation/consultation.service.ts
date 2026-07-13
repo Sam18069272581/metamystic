@@ -10,6 +10,7 @@ import type {
 } from "@metamystic/shared";
 import { finalize, Observable, shareReplay } from "rxjs";
 import { KnowledgeService } from "../knowledge/knowledge.service";
+import { asPrismaJson } from "../prisma/prisma-json";
 import { PrismaService } from "../prisma/prisma.service";
 import { ProfileService } from "../profile/profile.service";
 import { SafetyService } from "../safety/safety.service";
@@ -40,6 +41,7 @@ interface ConsultationRecord {
   charged?: boolean;
   accessRemaining?: number | null;
   accessResetsAt?: Date | null;
+  metadata?: unknown;
 }
 
 interface ConsultationStreamRecord extends ConsultationRecord {
@@ -338,6 +340,18 @@ export class ConsultationService {
         `${consultation.question} ${chart.mainPattern} ${chart.dayMasterStatus}`,
         3
       );
+      if (knowledge.trace) {
+        await this.prisma.consultation.update({
+          where: { id },
+          data: {
+            retrievalVersion: knowledge.retrievalVersion,
+            metadata: asPrismaJson({
+              ...asRecord(consultation.metadata),
+              retrieval: knowledge.trace
+            })
+          }
+        });
+      }
       for await (const chunk of this.aiProvider.streamConsultation({
         question: consultation.question,
         tone: consultation.tone,
@@ -515,4 +529,10 @@ function delay(milliseconds: number): Promise<void> {
 
 function normalizeAccessMode(value: string | undefined): "public_beta" | "metered" | "subscription" {
   return value === "metered" || value === "subscription" ? value : "public_beta";
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
