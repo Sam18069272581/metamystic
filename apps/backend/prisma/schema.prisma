@@ -57,7 +57,6 @@ model User {
   refreshTokens         RefreshToken[]
   consultations         Consultation[]
   compatibilityReadings CompatibilityReading[]
-  aiUsageBuckets        AiUsageBucket[]
 }
 
 model AuthIdentity {
@@ -243,15 +242,14 @@ model Consultation {
 
 model AiUsageBucket {
   id          String   @id @default(cuid())
-  userId      String
+  subject     String
   feature     String
   windowType  String
   windowStart DateTime
   used        Int      @default(0)
   updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, feature, windowType, windowStart])
+  @@unique([subject, feature, windowType, windowStart])
   @@index([windowStart])
 }
 
