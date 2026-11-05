@@ -8,6 +8,9 @@ import { PrismaService } from "../prisma/prisma.service";
 type AiAccessOwnerType = "anonymous" | "user";
 type UsageClient = PrismaService | Prisma.TransactionClient;
 
+const ANONYMOUS_GLOBAL_SUBJECT = "global:anonymous";
+const ANONYMOUS_GLOBAL_EXHAUSTED_MESSAGE = "今日匿名公测额度已满，登录后可继续使用。";
+
 export interface AiAccessInput {
   userId: string;
   ownerType: AiAccessOwnerType;
@@ -52,17 +55,25 @@ export class AiAccessPolicyService {
     const now = input.now ?? new Date();
     const dayStart = startOfUtcDay(now);
     const resetsAt = addMilliseconds(dayStart, 86_400_000).toISOString();
+    let remaining = this.dailyLimit(input.ownerType) - await this.readDailyUsed(input.userId, dayStart);
+    if (input.ownerType === "anonymous") {
+      const globalRemaining = this.anonymousGlobalDailyLimit() - await this.readDailyUsed(ANONYMOUS_GLOBAL_SUBJECT, dayStart);
+      remaining = Math.min(remaining, globalRemaining);
+    }
+    return publicBetaAccess(Math.max(0, remaining), resetsAt);
+  }
+
+  private async readDailyUsed(subject: string, dayStart: Date): Promise<number> {
     const rows = await this.prisma.$queryRaw<UsageRow[]>`
       SELECT used
       FROM "AiUsageBucket"
-      WHERE "userId" = ${input.userId}
+      WHERE subject = ${subject}
         AND feature = 'consultation'
         AND "windowType" = 'day'
         AND "windowStart" = ${dayStart}
       LIMIT 1
     `;
-    const used = Number(rows.at(0)?.used ?? 0);
-    return publicBetaAccess(Math.max(0, this.dailyLimit(input.ownerType) - used), resetsAt);
+    return Number(rows.at(0)?.used ?? 0);
   }
 
   async assertAvailable(input: AiAccessInput): Promise<AiAccessDto> {
@@ -99,6 +110,19 @@ export class AiAccessPolicyService {
           addMilliseconds(minuteStart, 60_000).toISOString()
         );
       }
+      // Anonymous ids are client-generated, so per-id limits alone are bypassable; this caps all anonymous usage.
+      if (input.ownerType === "anonymous") {
+        const global = await this.incrementBucket(
+          tx,
+          ANONYMOUS_GLOBAL_SUBJECT,
+          "day",
+          dayStart,
+          this.anonymousGlobalDailyLimit()
+        );
+        if (global === undefined) {
+          throw new AiAccessPolicyError("AI_RATE_LIMITED", ANONYMOUS_GLOBAL_EXHAUSTED_MESSAGE, resetsAt);
+        }
+      }
       return day;
     });
 
@@ -118,19 +142,23 @@ export class AiAccessPolicyService {
       : positiveInteger(this.config.get<string>("AI_PUBLIC_BETA_USER_DAILY_LIMIT"), 30);
   }
 
+  private anonymousGlobalDailyLimit(): number {
+    return positiveInteger(this.config.get<string>("AI_PUBLIC_BETA_ANON_GLOBAL_DAILY_LIMIT"), 200);
+  }
+
   private async incrementBucket(
     client: UsageClient,
-    userId: string,
+    subject: string,
     windowType: "day" | "minute",
     windowStart: Date,
     limit: number
   ): Promise<number | undefined> {
     const rows = await client.$queryRaw<UsageRow[]>`
       INSERT INTO "AiUsageBucket" (
-        id, "userId", feature, "windowType", "windowStart", used, "updatedAt"
+        id, subject, feature, "windowType", "windowStart", used, "updatedAt"
       )
-      VALUES (${randomUUID()}, ${userId}, 'consultation', ${windowType}, ${windowStart}, 1, NOW())
-      ON CONFLICT ("userId", feature, "windowType", "windowStart")
+      VALUES (${randomUUID()}, ${subject}, 'consultation', ${windowType}, ${windowStart}, 1, NOW())
+      ON CONFLICT (subject, feature, "windowType", "windowStart")
       DO UPDATE SET used = "AiUsageBucket".used + 1, "updatedAt" = NOW()
       WHERE "AiUsageBucket".used < ${limit}
       RETURNING used
